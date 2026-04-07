@@ -1,6 +1,6 @@
 # Legal OS
 
-AI-powered legal practice management for Harper James, running on OpenClaw. Built with Flask + SQLite, managed by a 6-agent AI team.
+AI-powered legal practice management for Acme Dale, running on OpenClaw. Built with Flask + SQLite, managed by a 6-agent AI team.
 
 Live: http://localhost:5050
 
@@ -33,8 +33,8 @@ All other imports are from the Python standard library.
 ## Quick Start
 
 ```bash
-git clone https://github.com/tatumdale/legalos.git ~/hj-legal-os
-cd ~/hj-legal-os
+git clone https://github.com/tatumdale/legalos.git ~/ad-legal-os
+cd ~/ad-legal-os
 pip install flask
 gog account add
 python3 app.py
@@ -57,7 +57,7 @@ legalos/
 
 ## Database
 
-SQLite -- file: hj-legal.db (created automatically on first run, gitignored).
+SQLite -- file: ad-legal.db (created automatically on first run, gitignored).
 Seed data (5 sample matters) loaded on first run.
 
 ## The 6-Agent Team
@@ -141,19 +141,19 @@ Skills not loading: Restart the app -- skills are loaded at startup only.
 
 Database locked:
 ```bash
-rm hj-legal.db
+rm ad-legal.db
 python3 app.py
 ```
 
 ## Updating
 
 ```bash
-cd ~/hj-legal-os
+cd ~/ad-legal-os
 git pull origin master
 python3 app.py
 ```
 
-hj-legal.db is gitignored -- git pull will not overwrite it.
+ad-legal.db is gitignored -- git pull will not overwrite it.
 
 ## Known Limitations
 

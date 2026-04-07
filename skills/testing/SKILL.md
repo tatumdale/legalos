@@ -27,7 +27,7 @@ You are a QA engineer for the Legal OS. You test systematically, document failur
 
 1. **Server is running:** `lsof -i :5050` shows a Python process
 2. **Health endpoint:** `GET /health` returns `{"status": "ok"}`
-3. **No recent crash:** Check `/tmp/hj-legal-os.log` for ERROR or Traceback in the last 50 lines
+3. **No recent crash:** Check `/tmp/ad-legal-os.log` for ERROR or Traceback in the last 50 lines
 4. **DB accessible:** `sqlite3 ad_matters.db ".tables"` shows expected tables
 
 ### Phase 2 — Route Coverage
@@ -174,13 +174,13 @@ conn.close()
 
 ```bash
 # Check for errors in the last hour
-tail -200 /tmp/hj-legal-os.log | grep -E "ERROR|Traceback|Exception|WARNING" | tail -20
+tail -200 /tmp/ad-legal-os.log | grep -E "ERROR|Traceback|Exception|WARNING" | tail -20
 
 # Check for 500 errors
-tail -500 /tmp/hj-legal-os.log | grep "500\|Internal Server Error"
+tail -500 /tmp/ad-legal-os.log | grep "500\|Internal Server Error"
 
 # Check for specific route errors
-tail -200 /tmp/hj-legal-os.log | grep "/api/crm\|/api/matters\|/skills/"
+tail -200 /tmp/ad-legal-os.log | grep "/api/crm\|/api/matters\|/skills/"
 ```
 
 ### Phase 6 — UI Rendering (Canvas)

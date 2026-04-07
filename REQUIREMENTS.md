@@ -1,5 +1,5 @@
 # LegalOS Feature Requirements
-## Two New Capabilities for the Harper James Legal OS
+## Two New Capabilities for the AD Legal OS
 
 **Date:** 2026-04-07
 **Prepared by:** Dexter Coder

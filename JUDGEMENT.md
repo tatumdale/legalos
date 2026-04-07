@@ -335,12 +335,12 @@ Decline letter must:
 **The Tatumdale Ltd question (2026-03-31):**
 
 Tatumdale Ltd = client of Acme Dale Legal Services
-Harper James Ltd = potential commercial counterparty to Tatumdale Ltd (if contract signed)
+Acme Dale Ltd = potential commercial counterparty to Tatumdale Ltd (if contract signed)
 
-If Acme Dale acts for Tatumdale Ltd AND Harper James Ltd is a related entity of Acme Dale, the conflict test:
+If Acme Dale acts for Tatumdale Ltd AND Acme Dale Ltd is a related entity of Acme Dale, the conflict test:
 
 1. **Existing client**: Tatumdale Ltd — YES
-2. **Would acting create a conflict**: Harper James Ltd is a separate commercial entity. The firm (Acme Dale) is not the same as Harper James Ltd (commercial). But: if a solicitor within Acme Dale has confidential information from another matter that is relevant to the Tatumdale contract, acting would breach duty.
+2. **Would acting create a conflict**: Acme Dale Ltd is a separate commercial entity. The firm (Acme Dale) is not the same as Acme Dale Ltd (commercial). But: if a solicitor within Acme Dale has confidential information from another matter that is relevant to the Tatumdale contract, acting would breach duty.
 3. **Can it be managed**: YES — if the matters are entirely unconnected and the solicitor acting for Tatumdale has no conflict of duty.
 
 **Decision**: CLEARED — separate entities, no conflict of duty. Document this reasoning in the conflict_log notes.

@@ -302,7 +302,7 @@ Email arrives → AD-Intake processes → Matter created in Legal OS
                             to contact + company)
                                     ↓
                               Telegram notification
-                        → Harper James channel #7
+                        → Acme Dale channel #7
 ```
 
 ### The `/api/crm/from-enquiry` call
@@ -319,7 +319,7 @@ curl -X POST http://localhost:5050/api/crm/from-enquiry \
     "company_name": "Acme Legal Ltd",
     "email_domain": "acme-legal.co.uk",
     "subject": "NDA for new supplier agreement",
-    "body_summary": "We received a supplier NDA from XYZ Ltd and would like Harper James to review...",
+    "body_summary": "We received a supplier NDA from XYZ Ltd and would like Acme Dale to review...",
     "product_interest": "NDA Screening",
     "matter_id": "uuid-of-matter-created",
     "source": "inbound_email"
@@ -334,7 +334,7 @@ The endpoint will:
 2. Find or create the CRM Contact (matches by email — existing clients are recognised)
 3. Create a Pipeline entry at stage "enquiry" linked to contact + company
 4. Log an intake Activity with the email subject and body summary
-5. Send a Telegram notification to Harper James channel #7
+5. Send a Telegram notification to Acme Dale channel #7
 
 ### Source values — always record the source
 

@@ -1,5 +1,5 @@
 """
-legal_os/research.py — Legal Research Service for HJ Legal OS
+legal_os/research.py — Legal Research Service for AD Legal OS
 Handles BAILII searches and internal precedent lookups.
 """
 import urllib.request
