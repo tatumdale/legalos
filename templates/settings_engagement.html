@@ -1,0 +1,79 @@
+{% extends "base.html" %}
+{% block title %}Engagement Settings — AD Legal OS{% endblock %}
+{% block page_title %}Engagement &amp; Briefing Configuration{% endblock %}
+
+{% block content %}
+<div class="settings-tabs">
+  <a href="{{ url_for('settings', tab='practice_areas') }}" class="settings-tab">Practice Areas</a>
+  <a href="{{ url_for('settings', tab='matter_types') }}" class="settings-tab">Matter Types</a>
+  <a href="{{ url_for('settings_engagement') }}" class="settings-tab active">Briefing Config</a>
+  <a href="{{ url_for('settings', tab='soul') }}" class="settings-tab">SOUL.md Files</a>
+  <a href="{{ url_for('settings', tab='data') }}" class="settings-tab">Data</a>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <div>
+      <h2 class="panel-title">Briefing Behaviour by Matter Type</h2>
+      <span class="text-xs text-muted">Controls whether a structured briefing interview is required before agent work begins.</span>
+    </div>
+  </div>
+  <div class="panel-body no-padding">
+    {% if configs %}
+    <form method="POST">
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Practice Area</th>
+            <th>Service Line</th>
+            <th>Tier</th>
+            <th>Briefing Behaviour</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for c in configs %}
+          <tr>
+            <td class="teal-text">{{ c.practice_area }}</td>
+            <td>{{ c.service_line or '—' }}</td>
+            <td><span class="tag">Tier {{ c.tier }}</span></td>
+            <td>
+              <select name="behaviour_{{ c.id }}" class="form-select"
+                style="padding: 6px 8px; border-radius: 6px; background: var(--bg-secondary, #1e1e2e); border: 1px solid var(--border, #333); color: var(--text-primary, #e0e0e0); font-size: 13px;">
+                {% for opt in ['required', 'recommended', 'optional', 'off'] %}
+                <option value="{{ opt }}" {% if c.briefing_behaviour == opt %}selected{% endif %}>{{ opt|capitalize }}</option>
+                {% endfor %}
+              </select>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      <div style="padding: 16px; display: flex; justify-content: flex-end;">
+        <button type="submit" class="btn btn-primary">Save Configuration</button>
+      </div>
+    </form>
+    {% else %}
+    <div class="empty-state">
+      <p>No matter type configurations found. <a href="{{ url_for('seed') }}">Load seed data</a> to populate defaults.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel" style="margin-top: 16px;">
+  <div class="panel-header">
+    <h2 class="panel-title">Briefing Behaviour Reference</h2>
+  </div>
+  <div class="panel-body">
+    <table class="data-table">
+      <thead><tr><th>Setting</th><th>Behaviour</th></tr></thead>
+      <tbody>
+        <tr><td class="teal-text">Required</td><td class="text-sm">Briefing must be completed before agents start work. Matter blocked until briefing is confirmed or skipped with a reason.</td></tr>
+        <tr><td class="amber-text">Recommended</td><td class="text-sm">Briefing is prompted but can be skipped. Agents proceed with available information if skipped.</td></tr>
+        <tr><td>Optional</td><td class="text-sm">Briefing link is shown on the matter page but not actively prompted.</td></tr>
+        <tr><td class="text-muted">Off</td><td class="text-sm">No briefing interview for this matter type. Agents use the matter record only.</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+{% endblock %}

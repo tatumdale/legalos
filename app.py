@@ -966,6 +966,73 @@ def matter_briefing_post(matter_id):
 
 
 # =============================================================================
+# BRIEFING — API + Skip
+# =============================================================================
+
+@app.route('/api/matters/<matter_id>/briefing', methods=['GET'])
+def api_matter_briefing(matter_id):
+    db = get_db()
+    matter = db.execute(
+        "SELECT briefing, briefing_status FROM matters WHERE id = ?",
+        (matter_id,)).fetchone()
+    if not matter or not matter['briefing']:
+        return jsonify({"error": "No briefing found"}), 404
+    try:
+        data = json.loads(matter['briefing'])
+    except (json.JSONDecodeError, TypeError):
+        return jsonify({"error": "Invalid briefing data"}), 500
+    return jsonify({
+        "matter_id": matter_id,
+        "status": matter['briefing_status'],
+        "briefing": data
+    })
+
+
+@app.route('/matter/<matter_id>/briefing/skip', methods=['POST'])
+def matter_briefing_skip(matter_id):
+    reason = request.form.get("reason", "").strip()
+    if not reason:
+        flash("A reason is required to skip briefing", "error")
+        return redirect(url_for("matter_briefing", matter_id=matter_id))
+    db = get_db()
+    now = datetime.now().isoformat()
+    db.execute(
+        "UPDATE matters SET briefing_status = 'skipped', briefing = ?, updated_at = ? WHERE id = ?",
+        (json.dumps({"_skip_reason": reason}), now, matter_id))
+    db.execute(
+        "INSERT INTO audit_log (id, matter_id, agent_id, action_type, detail, human_override, human_reviewer, created_at) "
+        "VALUES (?, ?, 'AD-Intake', 'briefing_skipped', ?, 1, 'Fee Earner (via Legal OS)', ?)",
+        (str(uuid.uuid4()), matter_id, json.dumps({"reason": reason}), now))
+    db.commit()
+    flash("Briefing skipped", "info")
+    return redirect(url_for("matter_detail", matter_id=matter_id))
+
+
+# =============================================================================
+# SETTINGS — Engagement / Briefing Configuration
+# =============================================================================
+
+@app.route('/settings/engagement', methods=['GET', 'POST'])
+def settings_engagement():
+    db = get_db()
+    cfg = get_firm_config()
+    if request.method == 'POST':
+        for key in request.form:
+            if key.startswith('behaviour_'):
+                config_id = key[len('behaviour_'):]
+                new_val = request.form[key]
+                db.execute(
+                    'UPDATE matter_type_config SET briefing_behaviour = ?, updated_at = ? WHERE id = ?',
+                    (new_val, datetime.now().isoformat(), config_id))
+        db.commit()
+        flash('Briefing configuration saved.', 'success')
+        return redirect(url_for('settings_engagement'))
+    rows = db.execute(
+        'SELECT * FROM matter_type_config ORDER BY practice_area, service_line').fetchall()
+    return render_template('settings_engagement.html', cfg=cfg, configs=[dict(r) for r in rows])
+
+
+# =============================================================================
 # API ROUTES — AD Legal OS
 # =============================================================================
 

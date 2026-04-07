@@ -357,3 +357,23 @@ If the contact's email already exists in the CRM, no new Contact is created — 
 - Do NOT use `source: "other"` without adding context in the `body_summary`
 
 *Last updated: 2026-04-03*
+
+---
+
+## Briefing Context
+
+Before starting work on any matter, retrieve the structured briefing by calling:
+GET /api/matters/{matter_id}/briefing
+
+The response contains:
+- status: briefing completion status (complete/draft/pending/skipped/not_required)
+- briefing: key-value pairs including:
+  - jurisdiction: applicable law
+  - client_type: Startup / SME / Large Corporate / Individual / Public Sector
+  - counterparty: name of the other party (if known)
+  - deal_value_band: Under £10K / £10K–£100K / £100K–£1M / Over £1M / Undisclosed
+  - risk_appetite: conservative / balanced / commercial
+  - Plus matter-type-specific fields (contract_type, structure, employee_level, etc.)
+
+If status is "complete", incorporate this briefing context into your analysis and recommendations.
+If no briefing exists or status is "not_required", proceed with information available in the matter record.

@@ -92,6 +92,7 @@
           <button type="button" class="btn btn-secondary btn-sm" id="btn-back">Back</button>
           {% endif %}
           <button type="button" class="btn btn-secondary btn-sm" id="btn-save-draft" onclick="submitDraft()">Save Draft</button>
+          <button type="button" class="btn btn-sm" style="background: transparent; color: var(--text-muted, #888); border: 1px solid var(--border, #333);" onclick="document.getElementById('skip-modal').style.display='flex'">Skip Briefing</button>
         </div>
         <div style="display: flex; gap: 8px;">
           {% if step < total_steps %}
@@ -100,6 +101,22 @@
           <button type="button" class="btn btn-primary" id="btn-confirm" onclick="submitConfirm()">Confirm Briefing</button>
           {% endif %}
         </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- Skip Briefing Modal -->
+<div id="skip-modal" style="display:none; position:fixed; inset:0; z-index:1000; background:rgba(0,0,0,0.6); align-items:center; justify-content:center;">
+  <div style="background:var(--bg-primary, #181825); border:1px solid var(--border, #333); border-radius:12px; padding:24px; max-width:440px; width:90%;">
+    <h3 style="margin:0 0 12px; font-size:16px; color:var(--text-primary, #e0e0e0);">Skip Briefing Interview</h3>
+    <p style="font-size:13px; color:var(--text-muted, #888); margin:0 0 16px;">This will mark the briefing as skipped. Agents will proceed without structured briefing context. Please provide a reason.</p>
+    <form method="POST" action="{{ url_for('matter_briefing_skip', matter_id=matter.id) }}">
+      <textarea name="reason" rows="3" required placeholder="Why is the briefing being skipped?"
+        style="width:100%; padding:8px; border-radius:6px; background:var(--bg-secondary, #1e1e2e); border:1px solid var(--border, #333); color:var(--text-primary, #e0e0e0); resize:vertical; margin-bottom:16px; font-family:inherit; font-size:13px;"></textarea>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button type="button" class="btn btn-secondary btn-sm" onclick="document.getElementById('skip-modal').style.display='none'">Cancel</button>
+        <button type="submit" class="btn btn-sm" style="background:var(--crimson, #c0392b); color:#fff;">Skip Briefing</button>
       </div>
     </form>
   </div>
