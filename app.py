@@ -4,9 +4,12 @@ import os
 import sqlite3
 import json
 import uuid
+import hashlib
+import secrets
+import datetime as dt
 from datetime import datetime
 from pathlib import Path
-from flask import Flask, g, render_template, request, redirect, url_for, jsonify, flash, send_file
+from flask import Flask, g, render_template, request, redirect, url_for, jsonify, flash, send_file, session, abort
 import csv
 import io
 import sys
@@ -208,6 +211,61 @@ def init_briefing_schema(db):
             db.execute('INSERT OR IGNORE INTO verification_criteria (id, practice_area, service_line, tier, criterion, description, enabled, updated_at) VALUES (?,?,?,?,?,?,1,?)',
                        (row[0], row[1], row[2], row[3], row[4], row[5], now))
 
+    # --- Client Portal tables (Phase 1) ---
+    db.execute('''CREATE TABLE IF NOT EXISTS portal_tokens (
+        id TEXT PRIMARY KEY,
+        client_id TEXT REFERENCES clients(id),
+        client_email TEXT,
+        token_hash TEXT UNIQUE NOT NULL,
+        matter_ids_json TEXT,
+        created_at TEXT,
+        expires_at TEXT,
+        last_accessed_at TEXT,
+        is_active INTEGER DEFAULT 1
+    )''')
+    db.execute('''CREATE TABLE IF NOT EXISTS portal_document_access (
+        id TEXT PRIMARY KEY,
+        matter_id TEXT REFERENCES matters(id),
+        document_name TEXT,
+        document_url TEXT,
+        document_type TEXT,
+        shared_by TEXT,
+        shared_at TEXT,
+        viewed_at TEXT,
+        downloaded_at TEXT,
+        action_required TEXT,
+        client_action TEXT,
+        client_action_at TEXT,
+        client_comment TEXT
+    )''')
+    db.execute('''CREATE TABLE IF NOT EXISTS portal_activity_log (
+        id TEXT PRIMARY KEY,
+        matter_id TEXT REFERENCES matters(id),
+        token_id TEXT REFERENCES portal_tokens(id),
+        activity_type TEXT,
+        description TEXT,
+        ip_address TEXT,
+        user_agent TEXT,
+        created_at TEXT
+    )''')
+    db.execute('''CREATE TABLE IF NOT EXISTS token_usage_log (
+        id TEXT PRIMARY KEY,
+        matter_id TEXT REFERENCES matters(id),
+        agent_id TEXT,
+        model TEXT,
+        input_tokens INTEGER,
+        output_tokens INTEGER,
+        total_tokens INTEGER,
+        cost_gbp REAL,
+        description TEXT,
+        called_at TEXT
+    )''')
+    for col, typedef in [('token_usage_json', 'TEXT')]:
+        try:
+            db.execute(f'ALTER TABLE matters ADD COLUMN {col} {typedef}')
+        except Exception:
+            pass
+
     db.commit()
 
 def get_db():
@@ -245,6 +303,31 @@ def get_firm_config():
 def save_firm_config(cfg):
     with open(FIRM_CONFIG, 'w') as f:
         json.dump(cfg, f, indent=2)
+
+# =============================================================================
+# TOKEN COST + PORTAL HELPERS
+# =============================================================================
+
+def calculate_token_cost(input_tokens, output_tokens, model='minimax-m2.7'):
+    """Calculate GBP cost of an LLM call. Rates per 1M tokens."""
+    RATES = {
+        'minimax-m2.7':   (0.107, 0.428),
+        'minimax-m2.1':   (0.055, 0.220),
+        'claude-opus-4':  (12.50, 75.00),
+        'gpt-4o':         (2.50,  10.00),
+        'default':        (0.107, 0.428),
+    }
+    if model.lower() not in RATES:
+        model = 'default'
+    rates = RATES.get(model.lower(), RATES['default'])
+    return ((input_tokens / 1_000_000) * rates[0]) + ((output_tokens / 1_000_000) * rates[1])
+
+def log_activity(db, token_id, matter_id, activity_type, description, ip_address, user_agent):
+    db.execute("""INSERT INTO portal_activity_log
+        (id, matter_id, token_id, activity_type, description, ip_address, user_agent, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (str(uuid.uuid4()), matter_id, token_id, activity_type, description,
+         ip_address or '', user_agent or '', datetime.now().isoformat()))
 
 STATUS_LABELS = {
     'prospect':'Prospect','conflict_check':'Conflict Check','kyc_pending':'KYC Pending',
@@ -1692,6 +1775,284 @@ def api_crm_pipeline_stage(pipeline_id):
         (new_stage, datetime.now().isoformat(), pipeline_id))
     db.commit()
     return jsonify({'status': 'ok', 'stage': new_stage})
+
+
+# =============================================================================
+# CLIENT PORTAL ROUTES
+# =============================================================================
+
+@app.route('/portal/<token>')
+def portal_login(token):
+    cfg = get_firm_config()
+    db = get_db()
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    row = db.execute(
+        "SELECT * FROM portal_tokens WHERE token_hash = ? AND is_active = 1",
+        (token_hash,)
+    ).fetchone()
+    if not row:
+        flash("This portal link is invalid or has expired.", "error")
+        return render_template("portal_error.html", cfg=cfg,
+            message="Invalid or expired link. Please contact your lawyer for a new link."), 404
+    if row['expires_at']:
+        expires = datetime.fromisoformat(row['expires_at'])
+        if datetime.now() > expires:
+            flash("This portal link has expired.", "error")
+            return render_template("portal_error.html", cfg=cfg,
+                message="This link has expired. Please contact your lawyer for a new link."), 410
+
+    db.execute("UPDATE portal_tokens SET last_accessed_at = ? WHERE id = ?",
+              (datetime.now().isoformat(), row['id']))
+    db.commit()
+
+    session['portal_token'] = token
+
+    client = db.execute("SELECT * FROM clients WHERE id = ?", (row['client_id'],)).fetchone()
+    matter_ids = json.loads(row['matter_ids_json'] or '[]')
+
+    matters = []
+    for mid in matter_ids:
+        m = db.execute("SELECT * FROM matters WHERE id = ?", (mid,)).fetchone()
+        if m:
+            docs = db.execute(
+                "SELECT * FROM portal_document_access WHERE matter_id = ? ORDER BY shared_at DESC",
+                (mid,)
+            ).fetchall()
+            tu = db.execute(
+                "SELECT SUM(input_tokens) as inp, SUM(output_tokens) as outp, SUM(total_tokens) as tot, SUM(cost_gbp) as cost FROM token_usage_log WHERE matter_id = ?",
+                (mid,)
+            ).fetchone()
+            matters.append({
+                **dict(m),
+                'documents': [dict(d) for d in docs],
+                'token_usage': {
+                    'input_tokens': tu['inp'] or 0,
+                    'output_tokens': tu['outp'] or 0,
+                    'total_tokens': tu['tot'] or 0,
+                    'cost_gbp': tu['cost'] or 0.0
+                } if tu else {'input_tokens': 0, 'output_tokens': 0, 'total_tokens': 0, 'cost_gbp': 0.0}
+            })
+
+    log_activity(db, row['id'], None, 'login', f"Portal login by {row['client_email']}",
+                 request.remote_addr, request.headers.get('User-Agent', ''))
+    db.commit()
+
+    return render_template("portal_dashboard.html", cfg=cfg, client=dict(client) if client else {},
+                           token=row, matters=matters, token_usage_json=json.dumps(
+                               {m['id']: m['token_usage'] for m in matters}))
+
+
+@app.route('/portal/logout')
+def portal_logout():
+    session.pop('portal_token', None)
+    flash("You've been logged out of the portal.", "info")
+    return redirect(url_for("portal_login", token=request.args.get('token', '')))
+
+
+@app.route('/portal/matter/<matter_id>')
+def portal_matter(matter_id):
+    cfg = get_firm_config()
+    token = session.get('portal_token', '')
+    if not token:
+        flash("Please access the portal from your email link.", "error")
+        return redirect(url_for("index"))
+
+    db = get_db()
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    prow = db.execute(
+        "SELECT * FROM portal_tokens WHERE token_hash = ? AND is_active = 1",
+        (token_hash,)
+    ).fetchone()
+    if not prow or matter_id not in json.loads(prow['matter_ids_json'] or '[]'):
+        abort(403)
+
+    matter = db.execute("SELECT * FROM matters WHERE id = ?", (matter_id,)).fetchone()
+    if not matter:
+        abort(404)
+
+    docs = db.execute(
+        "SELECT * FROM portal_document_access WHERE matter_id = ? ORDER BY shared_at DESC",
+        (matter_id,)
+    ).fetchall()
+
+    log_activity(db, prow['id'], matter_id, 'view_matter', f"Viewed matter {matter['ref']}",
+                 request.remote_addr, request.headers.get('User-Agent', ''))
+    db.commit()
+
+    return render_template("portal_matter.html", cfg=cfg, matter=dict(matter),
+                           documents=[dict(d) for d in docs], token=token)
+
+
+@app.route('/portal/document/<doc_id>/action', methods=['POST'])
+def portal_document_action(doc_id):
+    token = session.get('portal_token', '')
+    if not token:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    db = get_db()
+    token_hash = hashlib.sha256(token.encode()).hexdigest()
+    prow = db.execute("SELECT * FROM portal_tokens WHERE token_hash = ? AND is_active = 1",
+                      (token_hash,)).fetchone()
+    if not prow:
+        return jsonify({"error": "Unauthorized"}), 401
+
+    doc = db.execute("SELECT * FROM portal_document_access WHERE id = ?", (doc_id,)).fetchone()
+    if not doc:
+        return jsonify({"error": "Document not found"}), 404
+    if doc['matter_id'] not in json.loads(prow['matter_ids_json'] or '[]'):
+        return jsonify({"error": "Forbidden"}), 403
+
+    action = request.form.get('action', '')
+    comment = request.form.get('comment', '').strip()
+    if action not in ('approved', 'rejected', 'commented'):
+        return jsonify({"error": "Invalid action"}), 400
+
+    now = datetime.now().isoformat()
+    db.execute(
+        "UPDATE portal_document_access SET client_action = ?, client_action_at = ?, client_comment = ? WHERE id = ?",
+        (action, now, comment, doc_id)
+    )
+
+    matter = db.execute("SELECT ref FROM matters WHERE id = ?", (doc['matter_id'],)).fetchone()
+    log_activity(db, prow['id'], doc['matter_id'], f'document_{action}',
+                 f"{action.title()} document: {doc['document_name']} on {matter['ref']}" if matter else f"{action.title()} {doc['document_name']}",
+                 request.remote_addr, request.headers.get('User-Agent', ''))
+
+    db.execute("""INSERT INTO audit_log
+        (id, matter_id, action, actor, details, created_at)
+        VALUES (?, ?, ?, ?, ?, ?)""",
+        (str(uuid.uuid4()), doc['matter_id'], 'client_document_action', 'CLIENT',
+         json.dumps({"document": doc['document_name'], "action": action, "comment": comment}), now))
+
+    db.commit()
+    flash(f"Document {action} successfully.", "success")
+    return redirect(url_for("portal_matter", matter_id=doc['matter_id']))
+
+
+@app.route('/matter/<matter_id>/portal-share-document', methods=['POST'])
+def portal_share_document(matter_id):
+    cfg = get_firm_config()
+    db = get_db()
+    matter = db.execute("SELECT * FROM matters WHERE id = ?", (matter_id,)).fetchone()
+    if not matter:
+        flash("Matter not found", "error")
+        return redirect(url_for("matters"))
+
+    document_name = request.form.get('document_name', '').strip()
+    document_url  = request.form.get('document_url', '').strip()
+    document_type = request.form.get('document_type', 'advice')
+    action_req    = request.form.get('action_required', 'review')
+
+    if not document_name or not document_url:
+        flash("Document name and URL are required.", "error")
+        return redirect(url_for("matter_detail", matter_id=matter_id))
+
+    doc_id = str(uuid.uuid4())
+    now = datetime.now().isoformat()
+    db.execute("""INSERT INTO portal_document_access
+        (id, matter_id, document_name, document_url, document_type, shared_by, shared_at, action_required)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+        (doc_id, matter_id, document_name, document_url, document_type, 'fee_earner', now, action_req))
+
+    db.execute("""INSERT INTO audit_log (id, matter_id, action, actor, details, created_at)
+        VALUES (?, ?, 'portal_document_shared', 'fee_earner', ?, ?)""",
+        (str(uuid.uuid4()), matter_id, json.dumps({"document": document_name, "url": document_url}), now))
+
+    db.commit()
+    flash("Document shared with client.", "success")
+    return redirect(url_for("matter_portal_access", matter_id=matter_id))
+
+
+@app.route('/matter/<matter_id>/portal-access')
+def matter_portal_access(matter_id):
+    cfg = get_firm_config()
+    db = get_db()
+    matter = db.execute("SELECT m.*, c.name as client_name, c.email as client_email "
+                        "FROM matters m LEFT JOIN clients c ON c.id=m.client_id "
+                        "WHERE m.id = ?", (matter_id,)).fetchone()
+    if not matter:
+        flash("Matter not found", "error")
+        return redirect(url_for("matters"))
+
+    token_row = db.execute(
+        "SELECT * FROM portal_tokens WHERE client_id = ? AND is_active = 1",
+        (matter['client_id'],)
+    ).fetchone()
+
+    docs = db.execute(
+        "SELECT * FROM portal_document_access WHERE matter_id = ? ORDER BY shared_at DESC",
+        (matter_id,)
+    ).fetchall()
+
+    activities = db.execute(
+        "SELECT * FROM portal_activity_log WHERE matter_id = ? ORDER BY created_at DESC LIMIT 50",
+        (matter_id,)
+    ).fetchall()
+
+    return render_template("matter_portal_access.html", cfg=cfg, matter=dict(matter),
+                           token=dict(token_row) if token_row else None,
+                           documents=[dict(d) for d in docs],
+                           activities=[dict(a) for a in activities])
+
+
+@app.route('/matter/<matter_id>/portal-send-login', methods=['POST'])
+def portal_send_login(matter_id):
+    db = get_db()
+    matter = db.execute("SELECT m.*, c.email as client_email, c.name as client_name "
+                        "FROM matters m LEFT JOIN clients c ON c.id=m.client_id "
+                        "WHERE m.id = ?", (matter_id,)).fetchone()
+    if not matter:
+        return jsonify({"error": "Matter not found"}), 404
+
+    raw_token = secrets.token_urlsafe(32)
+    token_hash = hashlib.sha256(raw_token.encode()).hexdigest()
+
+    db.execute("UPDATE portal_tokens SET is_active = 0 WHERE client_id = ?", (matter['client_id'],))
+
+    tid = str(uuid.uuid4())
+    now = datetime.now().isoformat()
+    expires = (datetime.now() + dt.timedelta(days=90)).isoformat()
+    db.execute("""INSERT INTO portal_tokens
+        (id, client_id, client_email, token_hash, matter_ids_json, created_at, expires_at, is_active)
+        VALUES (?, ?, ?, ?, ?, ?, ?, 1)""",
+        (tid, matter['client_id'], matter['client_email'], token_hash,
+         json.dumps([matter_id]), now, expires))
+
+    db.execute("""INSERT INTO audit_log (id, matter_id, action, actor, details, created_at)
+        VALUES (?, ?, 'portal_token_created', 'fee_earner', ?, ?)""",
+        (str(uuid.uuid4()), matter_id, json.dumps({"client_email": matter['client_email']}), now))
+    db.commit()
+
+    portal_url = url_for('portal_login', token=raw_token, _external=True)
+
+    flash(f"Portal link generated. Send this to {matter['client_email']}: {portal_url}", "success")
+    return redirect(url_for("matter_portal_access", matter_id=matter_id))
+
+
+@app.route('/api/matters/<id>/log-token-usage', methods=['POST'])
+def log_token_usage(id):
+    """Agents call this after completing a task to log token usage."""
+    db = get_db()
+    matter = db.execute("SELECT id FROM matters WHERE id = ?", (id,)).fetchone()
+    if not matter:
+        return jsonify({"error": "Matter not found"}), 404
+
+    data = request.get_json() or {}
+    inp = data.get('input_tokens', 0)
+    out = data.get('output_tokens', 0)
+    model = data.get('model', 'minimax-m2.7')
+    desc = data.get('description', f'AI activity by {data.get("agent_id", "agent")}')
+    cost = calculate_token_cost(inp, out, model)
+    now = datetime.now().isoformat()
+    tid = str(uuid.uuid4())
+
+    db.execute("""INSERT INTO token_usage_log
+        (id, matter_id, agent_id, model, input_tokens, output_tokens, total_tokens, cost_gbp, description, called_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+        (tid, id, data.get('agent_id', 'agent'), model, inp, out, inp + out, cost, desc, now))
+    db.commit()
+
+    return jsonify({"logged": True, "cost_gbp": round(cost, 4), "total_tokens": inp + out})
 
 
 if __name__=='__main__':

@@ -1,0 +1,32 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Portal — {{ cfg.firm_name }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body { font-family: 'Inter', sans-serif; background: #0A1628; color: #E2E8F0; min-height: 100vh; display: flex; align-items: center; justify-content: center; }
+  .portal-error-container { text-align: center; max-width: 480px; padding: 40px; }
+  .portal-logo { font-size: 3rem; margin-bottom: 16px; }
+  .portal-firm { font-size: 1.1rem; font-weight: 600; margin-bottom: 32px; color: #94A3B8; }
+  .portal-error-box { background: #0F1E35; border: 1px solid rgba(255,71,87,0.3); border-radius: 12px; padding: 32px; margin-bottom: 24px; }
+  .portal-error-box h2 { color: #FF4757; font-size: 1.2rem; margin-bottom: 12px; }
+  .portal-error-box p { color: #94A3B8; font-size: 0.95rem; line-height: 1.6; }
+  .portal-contact { font-size: 0.85rem; color: #4A5568; }
+</style>
+</head>
+<body>
+  <div class="portal-error-container">
+    <div class="portal-logo">⚖️</div>
+    <div class="portal-firm">{{ cfg.firm_name }}</div>
+    <div class="portal-error-box">
+      <h2>Portal Access Error</h2>
+      <p>{{ message }}</p>
+    </div>
+    <p class="portal-contact">If you believe this is an error, please contact your lawyer directly.</p>
+  </div>
+</body>
+</html>

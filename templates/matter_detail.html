@@ -1157,6 +1157,39 @@
     </div>
     {% endif %}
 
+    <!-- Client Portal -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Client Portal</h2>
+      </div>
+      <div class="panel-body">
+        {% set portal_token = db().execute("SELECT * FROM portal_tokens WHERE client_id = ? AND is_active = 1", (matter.client_id,)).fetchone() %}
+        {% if portal_token %}
+          <div style="margin-bottom: 8px;">
+            <span class="status-badge status-teal">Portal Active</span>
+            <span class="text-xs text-muted" style="margin-left: 6px;">since {{ format_datetime(portal_token['created_at']) }}</span>
+          </div>
+          {% set shared_docs = db().execute("SELECT * FROM portal_document_access WHERE matter_id = ? ORDER BY shared_at DESC LIMIT 3", (matter.id,)).fetchall() %}
+          {% if shared_docs %}
+          <div style="margin-bottom: 10px;">
+            {% for d in shared_docs %}
+            <div style="font-size: 0.8rem; padding: 3px 0; color: var(--text-secondary);">
+              {{ d['document_name'] }}
+              {% if d['client_action'] %}
+              <span class="action-badge {% if d['client_action'] == 'approved' %}status-teal{% elif d['client_action'] == 'rejected' %}status-crimson{% else %}status-blue{% endif %}" style="font-size: 0.65rem;">{{ d['client_action'] }}</span>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+          <a href="{{ url_for('matter_portal_access', matter_id=matter.id) }}" class="btn btn-secondary btn-block btn-sm">Manage Portal</a>
+        {% else %}
+          <p class="text-sm text-muted" style="margin-bottom: 8px;">No portal access set up for this client.</p>
+          <a href="{{ url_for('matter_portal_access', matter_id=matter.id) }}" class="btn btn-primary btn-block btn-sm">Set Up Portal Access</a>
+        {% endif %}
+      </div>
+    </div>
+
     <!-- AI Disclosure -->
     <div class="panel">
       <div class="panel-header">

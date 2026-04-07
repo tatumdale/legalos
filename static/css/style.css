@@ -902,3 +902,18 @@ body { display: flex; min-height: 100vh; }
 .mrr-value { font-size: 28px; font-weight: 700; color: var(--text-primary); font-family: var(--font-mono); }
 .arr-value { font-size: 18px; font-weight: 600; color: var(--text-secondary); font-family: var(--font-mono); }
 .renewal-soon { color: var(--crimson); font-weight: 600; }
+
+/* Client Portal */
+.portal-section { background: var(--bg-card); border: 1px solid var(--border); border-radius: 8px; padding: 20px; margin-bottom: 20px; }
+.token-summary-row { display: flex; gap: 24px; margin: 16px 0; }
+.token-stat { text-align: center; }
+.token-stat-value { font-size: 1.5rem; font-weight: 700; color: var(--teal); }
+.token-stat-label { font-size: 0.75rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.05em; }
+.token-breakdown { margin-top: 12px; }
+.token-breakdown summary { cursor: pointer; color: var(--text-muted); font-size: 0.875rem; }
+.portal-document-card { background: var(--bg-card); border: 1px solid var(--border); border-radius: 6px; padding: 16px; margin-bottom: 12px; }
+.portal-document-card .doc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+.portal-document-card .doc-name { font-weight: 600; }
+.portal-document-card .doc-meta { font-size: 0.8rem; color: var(--text-muted); }
+.portal-action-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-top: 12px; }
+.portal-action-form textarea { width: 100%; margin-top: 8px; }

@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Client Portal — {{ cfg.firm_name }}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<style>
+  body { background: #0A1628; color: #E2E8F0; }
+  .portal-wrapper { max-width: 960px; margin: 0 auto; padding: 24px; }
+  .portal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid rgba(255,255,255,0.07); margin-bottom: 24px; }
+  .portal-header-left { display: flex; align-items: center; gap: 12px; }
+  .portal-header-logo { font-size: 1.5rem; }
+  .portal-header-firm { font-weight: 600; font-size: 1rem; }
+  .portal-header-right a { color: #94A3B8; text-decoration: none; font-size: 0.85rem; padding: 6px 14px; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; }
+  .portal-header-right a:hover { border-color: rgba(255,255,255,0.2); color: #E2E8F0; }
+  .portal-welcome { background: #0F1E35; border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+  .portal-welcome h2 { font-size: 1.2rem; margin-bottom: 8px; }
+  .portal-welcome p { color: #94A3B8; font-size: 0.9rem; line-height: 1.5; }
+  .matters-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(420px, 1fr)); gap: 16px; }
+  .matter-card { background: #0F1E35; border: 1px solid rgba(255,255,255,0.07); border-radius: 10px; padding: 20px; transition: border-color 0.2s; }
+  .matter-card:hover { border-color: rgba(0,212,170,0.3); }
+  .matter-card-header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 12px; }
+  .matter-card-ref { font-weight: 600; font-size: 1rem; font-family: 'JetBrains Mono', monospace; }
+  .matter-card-pa { font-size: 0.8rem; color: #94A3B8; margin-top: 4px; }
+  .matter-card-status { font-size: 0.7rem; font-weight: 600; padding: 3px 10px; border-radius: 10px; text-transform: uppercase; letter-spacing: 0.05em; font-family: 'JetBrains Mono', monospace; }
+  .matter-card-status.status-active { background: rgba(0,212,170,0.12); color: #00D4AA; }
+  .matter-card-status.status-pending { background: rgba(255,176,32,0.12); color: #FFB020; }
+  .matter-card-status.status-closed { background: rgba(255,255,255,0.06); color: #4A5568; }
+  .matter-card-footer { display: flex; justify-content: space-between; align-items: center; margin-top: 16px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); }
+  .matter-card-footer .text-muted { font-size: 0.75rem; color: #4A5568; }
+  .docs-badge { font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; background: rgba(255,176,32,0.12); color: #FFB020; font-family: 'JetBrains Mono', monospace; }
+  .matter-card-link { color: #00D4AA; text-decoration: none; font-size: 0.85rem; font-weight: 500; }
+  .matter-card-link:hover { text-decoration: underline; }
+  .portal-empty { text-align: center; padding: 48px; color: #4A5568; }
+  .portal-flash { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; }
+  .portal-flash.flash-error { background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.3); color: #FF4757; }
+  .portal-flash.flash-info { background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); color: #60a5fa; }
+  .portal-flash.flash-success { background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.3); color: #00D4AA; }
+</style>
+</head>
+<body>
+  <div class="portal-wrapper">
+    <div class="portal-header">
+      <div class="portal-header-left">
+        <span class="portal-header-logo">⚖️</span>
+        <span class="portal-header-firm">{{ cfg.firm_name }}</span>
+      </div>
+      <div class="portal-header-right">
+        <span style="color: #94A3B8; font-size: 0.85rem; margin-right: 16px;">{{ client.name|default('Client') }}</span>
+        <a href="{{ url_for('portal_logout') }}">Logout</a>
+      </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="portal-flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div class="portal-welcome">
+      <h2>Welcome, {{ client.name|default('Client') }}</h2>
+      <p>Your lawyer has set up a secure portal for you to view your matters, review documents, and provide feedback. All activity is logged for your protection.</p>
+    </div>
+
+    {% if matters %}
+    {% for matter in matters %}
+    <div class="portal-section token-usage-section" style="margin-bottom: 20px;">
+      <h3>AI Activity on Your Matter — {{ matter.ref }}</h3>
+      <p class="text-sm" style="color: #4A5568; margin-bottom: 12px;">This shows the AI tools used to progress your matter. All costs are estimated.</p>
+      <div class="token-summary-row">
+        <div class="token-stat">
+          <div class="token-stat-value">{{ "{:,}".format(matter.token_usage.total_tokens|default(0)|int) }}</div>
+          <div class="token-stat-label">Total tokens</div>
+        </div>
+        <div class="token-stat">
+          <div class="token-stat-value">£{{ "%.4f"|format(matter.token_usage.cost_gbp|default(0)) }}</div>
+          <div class="token-stat-label">AI cost</div>
+        </div>
+        <div class="token-stat">
+          <div class="token-stat-value">{{ matter.documents|length }}</div>
+          <div class="token-stat-label">Documents</div>
+        </div>
+      </div>
+      <details class="token-breakdown">
+        <summary>View cost breakdown</summary>
+        <p style="font-size: 0.75rem; color: #4A5568; margin-top: 8px;">Rate card: MiniMax M2.7 — £0.107/1M input, £0.428/1M output. Opus 4 — £12.50/1M input, £75.00/1M output.</p>
+        <p style="font-size: 0.75rem; color: #00D4AA; margin-top: 4px;">AI processing costs a fraction of traditional legal research — typically £0.01–£0.50 per matter vs £200–£500/hr for human lawyers.</p>
+      </details>
+    </div>
+    {% endfor %}
+
+    <div class="matters-grid">
+      {% for matter in matters %}
+      {% set action_docs = matter.documents|selectattr('action_required')|rejectattr('client_action')|list %}
+      <div class="matter-card">
+        <div class="matter-card-header">
+          <div>
+            <div class="matter-card-ref">{{ matter.ref }}</div>
+            <div class="matter-card-pa">{{ matter.practice_area|default('') }} — {{ matter.matter_type|default('') }}</div>
+          </div>
+          <span class="matter-card-status {% if matter.status in ['active','in_progress'] %}status-active{% elif matter.status in ['completed','closed'] %}status-closed{% else %}status-pending{% endif %}">
+            {{ matter.status|default('pending')|replace('_', ' ') }}
+          </span>
+        </div>
+        {% if matter.client_name %}
+        <div style="font-size: 0.85rem; color: #94A3B8; margin-bottom: 8px;">{{ matter.client_name }}</div>
+        {% endif %}
+        <div class="matter-card-footer">
+          <div>
+            <span class="text-muted">Updated: {{ matter.updated_at[:10] if matter.updated_at else '—' }}</span>
+            {% if action_docs %}
+            <span class="docs-badge" style="margin-left: 8px;">{{ action_docs|length }} awaiting action</span>
+            {% endif %}
+          </div>
+          <a href="{{ url_for('portal_matter', matter_id=matter.id) }}" class="matter-card-link">View Matter →</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="portal-empty">
+      <p style="font-size: 1.1rem; margin-bottom: 8px;">No active matters</p>
+      <p style="font-size: 0.85rem;">Your lawyer will add matters to your portal when they are ready for your review.</p>
+    </div>
+    {% endif %}
+
+    <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
+      <p style="font-size: 0.75rem; color: #4A5568;">{{ cfg.firm_name }} — Secure Client Portal</p>
+    </div>
+  </div>
+</body>
+</html>

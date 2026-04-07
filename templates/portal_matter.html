@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ matter.ref }} — Client Portal</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+<style>
+  body { background: #0A1628; color: #E2E8F0; }
+  .portal-wrapper { max-width: 960px; margin: 0 auto; padding: 24px; }
+  .portal-header { display: flex; justify-content: space-between; align-items: center; padding: 16px 0; border-bottom: 1px solid rgba(255,255,255,0.07); margin-bottom: 24px; }
+  .portal-header-left { display: flex; align-items: center; gap: 12px; }
+  .portal-header-logo { font-size: 1.5rem; }
+  .portal-header-firm { font-weight: 600; font-size: 1rem; }
+  .portal-back { color: #00D4AA; text-decoration: none; font-size: 0.85rem; }
+  .portal-back:hover { text-decoration: underline; }
+  .portal-matter-header { background: #0F1E35; border: 1px solid rgba(255,255,255,0.07); border-radius: 12px; padding: 24px; margin-bottom: 24px; }
+  .portal-matter-header h2 { font-size: 1.2rem; font-family: 'JetBrains Mono', monospace; margin-bottom: 8px; }
+  .portal-matter-meta { display: flex; gap: 24px; flex-wrap: wrap; font-size: 0.85rem; color: #94A3B8; }
+  .portal-matter-meta span { display: flex; align-items: center; gap: 6px; }
+  .portal-section-title { font-size: 1rem; font-weight: 600; margin-bottom: 16px; padding-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.07); }
+  .portal-document-card { background: #0F1E35; border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 16px; margin-bottom: 12px; }
+  .portal-document-card:hover { border-color: rgba(255,255,255,0.12); }
+  .doc-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px; }
+  .doc-name { font-weight: 600; font-size: 0.95rem; }
+  .doc-type-badge { font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .doc-action-badge { font-size: 0.7rem; font-weight: 600; padding: 2px 8px; border-radius: 10px; text-transform: uppercase; font-family: 'JetBrains Mono', monospace; }
+  .doc-action-badge.review { background: rgba(255,176,32,0.12); color: #FFB020; }
+  .doc-action-badge.approval { background: rgba(255,71,87,0.12); color: #FF4757; }
+  .doc-action-badge.info { background: rgba(255,255,255,0.06); color: #94A3B8; }
+  .doc-action-badge.approved { background: rgba(0,212,170,0.12); color: #00D4AA; }
+  .doc-action-badge.rejected { background: rgba(255,71,87,0.12); color: #FF4757; }
+  .doc-action-badge.commented { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .doc-meta { font-size: 0.8rem; color: #4A5568; }
+  .doc-url-link { color: #00D4AA; text-decoration: none; font-size: 0.85rem; }
+  .doc-url-link:hover { text-decoration: underline; }
+  .portal-action-form { margin-top: 12px; padding-top: 12px; border-top: 1px solid rgba(255,255,255,0.05); }
+  .portal-action-form textarea { width: 100%; background: #0A1628; border: 1px solid rgba(255,255,255,0.1); border-radius: 6px; color: #E2E8F0; padding: 8px; font-size: 0.85rem; font-family: 'Inter', sans-serif; resize: vertical; min-height: 60px; margin-bottom: 8px; }
+  .portal-action-form textarea:focus { outline: none; border-color: rgba(0,212,170,0.4); }
+  .portal-action-buttons { display: flex; gap: 8px; flex-wrap: wrap; }
+  .portal-btn { padding: 6px 16px; border-radius: 6px; border: none; font-size: 0.8rem; font-weight: 600; cursor: pointer; font-family: 'Inter', sans-serif; }
+  .portal-btn-approve { background: rgba(0,212,170,0.15); color: #00D4AA; border: 1px solid rgba(0,212,170,0.3); }
+  .portal-btn-approve:hover { background: rgba(0,212,170,0.25); }
+  .portal-btn-reject { background: rgba(255,71,87,0.1); color: #FF4757; border: 1px solid rgba(255,71,87,0.3); }
+  .portal-btn-reject:hover { background: rgba(255,71,87,0.2); }
+  .portal-btn-comment { background: rgba(59,130,246,0.1); color: #60a5fa; border: 1px solid rgba(59,130,246,0.3); }
+  .portal-btn-comment:hover { background: rgba(59,130,246,0.2); }
+  .portal-flash { padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 0.9rem; }
+  .portal-flash.flash-error { background: rgba(255,71,87,0.1); border: 1px solid rgba(255,71,87,0.3); color: #FF4757; }
+  .portal-flash.flash-success { background: rgba(0,212,170,0.1); border: 1px solid rgba(0,212,170,0.3); color: #00D4AA; }
+  .client-action-display { margin-top: 10px; padding: 10px; background: rgba(0,212,170,0.05); border-radius: 6px; border: 1px solid rgba(0,212,170,0.1); }
+  .client-action-display .action-label { font-size: 0.8rem; font-weight: 600; margin-bottom: 4px; }
+  .client-action-display .action-comment { font-size: 0.85rem; color: #94A3B8; }
+  .portal-empty-docs { text-align: center; padding: 32px; color: #4A5568; background: #0F1E35; border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; }
+</style>
+</head>
+<body>
+  <div class="portal-wrapper">
+    <div class="portal-header">
+      <div class="portal-header-left">
+        <span class="portal-header-logo">⚖️</span>
+        <span class="portal-header-firm">{{ cfg.firm_name }}</span>
+      </div>
+    </div>
+
+    {% with messages = get_flashed_messages(with_categories=true) %}
+    {% if messages %}
+    {% for category, message in messages %}
+    <div class="portal-flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+    {% endif %}
+    {% endwith %}
+
+    <div style="margin-bottom: 16px;">
+      <a href="{{ url_for('portal_login', token=token) }}" class="portal-back">← Back to Dashboard</a>
+    </div>
+
+    <div class="portal-matter-header">
+      <h2>{{ matter.ref }}</h2>
+      <div class="portal-matter-meta">
+        <span>{{ matter.client_name|default('') }}</span>
+        <span>{{ matter.practice_area|default('') }}</span>
+        <span>Status: <strong>{{ matter.status|default('pending')|replace('_', ' ')|title }}</strong></span>
+        {% if matter.updated_at %}
+        <span>Updated: {{ matter.updated_at[:10] }}</span>
+        {% endif %}
+      </div>
+    </div>
+
+    <h3 class="portal-section-title">Documents</h3>
+
+    {% if documents %}
+    {% for doc in documents %}
+    <div class="portal-document-card">
+      <div class="doc-header">
+        <div>
+          <span class="doc-name">{{ doc.document_name }}</span>
+          <span class="doc-type-badge" style="margin-left: 8px;">{{ doc.document_type|default('document') }}</span>
+        </div>
+        {% if doc.action_required and not doc.client_action %}
+        <span class="doc-action-badge {{ doc.action_required }}">{{ doc.action_required }} required</span>
+        {% elif doc.client_action %}
+        <span class="doc-action-badge {{ doc.client_action }}">{{ doc.client_action }}</span>
+        {% endif %}
+      </div>
+      <div class="doc-meta">
+        Shared: {{ doc.shared_at[:16]|default('—') if doc.shared_at else '—' }}
+        {% if doc.document_url %}
+        · <a href="{{ doc.document_url }}" target="_blank" rel="noopener" class="doc-url-link">Open Document</a>
+        {% endif %}
+      </div>
+
+      {% if doc.client_action %}
+      <div class="client-action-display">
+        <div class="action-label" style="color: {% if doc.client_action == 'approved' %}#00D4AA{% elif doc.client_action == 'rejected' %}#FF4757{% else %}#60a5fa{% endif %};">
+          {{ doc.client_action|title }} on {{ doc.client_action_at[:10] if doc.client_action_at else '—' }}
+        </div>
+        {% if doc.client_comment %}
+        <div class="action-comment">{{ doc.client_comment }}</div>
+        {% endif %}
+      </div>
+      {% elif doc.action_required %}
+      <div class="portal-action-form">
+        <form method="POST" action="{{ url_for('portal_document_action', doc_id=doc.id) }}">
+          <textarea name="comment" placeholder="Add a comment (optional)..."></textarea>
+          <div class="portal-action-buttons">
+            <button type="submit" name="action" value="approved" class="portal-btn portal-btn-approve">Approve</button>
+            <button type="submit" name="action" value="rejected" class="portal-btn portal-btn-reject">Reject</button>
+            <button type="submit" name="action" value="commented" class="portal-btn portal-btn-comment">Comment Only</button>
+          </div>
+        </form>
+      </div>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% else %}
+    <div class="portal-empty-docs">
+      <p>No documents shared yet. Your lawyer will share documents here when they are ready for your review.</p>
+    </div>
+    {% endif %}
+
+    <div style="text-align: center; margin-top: 40px; padding-top: 20px; border-top: 1px solid rgba(255,255,255,0.05);">
+      <p style="font-size: 0.75rem; color: #4A5568;">{{ cfg.firm_name }} — Secure Client Portal</p>
+    </div>
+  </div>
+</body>
+</html>

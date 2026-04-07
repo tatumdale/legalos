@@ -1,0 +1,222 @@
+{% extends "base.html" %}
+{% block title %}Portal Access — {{ matter.ref }}{% endblock %}
+{% block page_title %}Portal Access <span class="text-muted">— {{ matter.ref }}</span>{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 16px;">
+  <a href="{{ url_for('matter_detail', matter_id=matter.id) }}" class="btn btn-sm btn-ghost">← Back to Matter</a>
+</div>
+
+<div class="matter-layout">
+  <div class="matter-main">
+
+    <!-- Portal Status -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Portal Status</h2>
+        {% if token %}
+          {% if token.is_active %}
+            <span class="status-badge status-teal">Active</span>
+          {% else %}
+            <span class="status-badge status-muted">Inactive</span>
+          {% endif %}
+        {% else %}
+          <span class="status-badge status-amber">Not Set Up</span>
+        {% endif %}
+      </div>
+      <div class="panel-body">
+        {% if token %}
+        <div class="meta-grid" style="margin-bottom: 16px;">
+          <div class="meta-item">
+            <div class="meta-label">Client Email</div>
+            <div class="meta-value mono text-sm">{{ token.client_email or matter.client_email or '—' }}</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Created</div>
+            <div class="meta-value mono text-sm">{{ format_datetime(token.created_at) }}</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Expires</div>
+            <div class="meta-value mono text-sm">{{ format_datetime(token.expires_at) }}</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Last Accessed</div>
+            <div class="meta-value mono text-sm">{{ format_datetime(token.last_accessed_at) if token.last_accessed_at else 'Never' }}</div>
+          </div>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          <form method="POST" action="{{ url_for('portal_send_login', matter_id=matter.id) }}" style="margin: 0;">
+            <button type="submit" class="btn btn-primary btn-sm">Regenerate & Send Login Link</button>
+          </form>
+          <form method="POST" action="{{ url_for('portal_send_login', matter_id=matter.id) }}" style="margin: 0;"
+                onsubmit="if(!confirm('Revoke portal access for this client?'))return false;">
+            <input type="hidden" name="revoke" value="1">
+            <button type="submit" class="btn btn-sm" style="background: rgba(255,71,87,0.1); color: #FF4757; border: 1px solid rgba(255,71,87,0.3);">Revoke Access</button>
+          </form>
+        </div>
+        {% else %}
+        <p class="text-sm text-muted" style="margin-bottom: 12px;">No portal access has been set up for {{ matter.client_name or 'this client' }}.</p>
+        <form method="POST" action="{{ url_for('portal_send_login', matter_id=matter.id) }}">
+          <button type="submit" class="btn btn-primary btn-sm">Set Up Portal Access</button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Shared Documents -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Shared Documents</h2>
+        <span class="action-badge">{{ documents|length }}</span>
+      </div>
+      <div class="panel-body">
+        {% if documents %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Document</th>
+              <th>Type</th>
+              <th>Action Required</th>
+              <th>Client Action</th>
+              <th>Shared</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for doc in documents %}
+            <tr>
+              <td class="text-sm">
+                {% if doc.document_url %}
+                <a href="{{ doc.document_url }}" target="_blank" rel="noopener" style="color: var(--teal);">{{ doc.document_name }}</a>
+                {% else %}
+                {{ doc.document_name }}
+                {% endif %}
+              </td>
+              <td><span class="action-badge">{{ doc.document_type|default('doc') }}</span></td>
+              <td><span class="action-badge {% if doc.action_required == 'approval' %}status-crimson{% elif doc.action_required == 'review' %}status-amber{% else %}status-muted{% endif %}">{{ doc.action_required|default('—') }}</span></td>
+              <td>
+                {% if doc.client_action %}
+                <span class="action-badge {% if doc.client_action == 'approved' %}status-teal{% elif doc.client_action == 'rejected' %}status-crimson{% else %}status-blue{% endif %}">
+                  {{ doc.client_action }}
+                </span>
+                {% if doc.client_action_at %}
+                <span class="mono text-xs text-muted" style="display: block; margin-top: 2px;">{{ doc.client_action_at[:10] }}</span>
+                {% endif %}
+                {% if doc.client_comment %}
+                <span class="text-xs text-muted" style="display: block; margin-top: 2px;">{{ doc.client_comment[:80] }}{% if doc.client_comment|length > 80 %}...{% endif %}</span>
+                {% endif %}
+                {% else %}
+                <span class="text-muted">—</span>
+                {% endif %}
+              </td>
+              <td class="mono text-xs">{{ format_datetime(doc.shared_at) }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>No documents shared with client yet.</p></div>
+        {% endif %}
+
+        <div style="margin-top: 20px; padding-top: 16px; border-top: 1px solid var(--border);">
+          <h3 class="text-sm" style="font-weight: 600; margin-bottom: 12px;">Share New Document</h3>
+          <form method="POST" action="{{ url_for('portal_share_document', matter_id=matter.id) }}">
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 8px;">
+              <div>
+                <label class="form-label" style="font-size: 0.75rem;">Document Name</label>
+                <input type="text" name="document_name" class="form-input" placeholder="e.g. Draft Service Agreement" required>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.75rem;">Document URL</label>
+                <input type="url" name="document_url" class="form-input" placeholder="https://drive.google.com/..." required>
+              </div>
+            </div>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 12px;">
+              <div>
+                <label class="form-label" style="font-size: 0.75rem;">Document Type</label>
+                <select name="document_type" class="form-select">
+                  <option value="advice">Advice</option>
+                  <option value="draft">Draft</option>
+                  <option value="contract">Contract</option>
+                  <option value="letter">Letter</option>
+                  <option value="report">Report</option>
+                  <option value="other">Other</option>
+                </select>
+              </div>
+              <div>
+                <label class="form-label" style="font-size: 0.75rem;">Action Required</label>
+                <select name="action_required" class="form-select">
+                  <option value="review">Review</option>
+                  <option value="approval">Approval</option>
+                  <option value="info">Information Only</option>
+                </select>
+              </div>
+            </div>
+            <button type="submit" class="btn btn-primary btn-sm">Share with Client</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Activity Log -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Portal Activity Log</h2>
+        <span class="action-badge">{{ activities|length }}</span>
+      </div>
+      <div class="panel-body no-padding">
+        {% if activities %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Activity</th>
+              <th>Description</th>
+              <th>IP</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for a in activities %}
+            <tr>
+              <td class="mono text-xs">{{ format_datetime(a.created_at) }}</td>
+              <td><span class="action-badge">{{ a.activity_type }}</span></td>
+              <td class="text-sm">{{ a.description }}</td>
+              <td class="mono text-xs text-muted">{{ a.ip_address[:20] if a.ip_address else '—' }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>No portal activity recorded yet.</p></div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+  <div class="matter-sidebar">
+    <div class="panel">
+      <div class="panel-header"><h2 class="panel-title">Matter Details</h2></div>
+      <div class="panel-body">
+        <div class="meta-grid">
+          <div class="meta-item">
+            <div class="meta-label">Reference</div>
+            <div class="meta-value mono text-sm">{{ matter.ref }}</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Client</div>
+            <div class="meta-value text-sm">{{ matter.client_name or '—' }}</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Email</div>
+            <div class="meta-value mono text-sm">{{ matter.client_email or '—' }}</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Practice Area</div>
+            <div class="meta-value text-sm">{{ matter.practice_area or '—' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

@@ -214,3 +214,16 @@ The response contains:
 
 If status is "complete", incorporate this briefing context into your analysis and recommendations.
 If no briefing exists or status is "not_required", proceed with information available in the matter record.
+
+## Token Usage Logging
+
+After completing each significant task, log your token usage:
+
+POST /api/matters/{matter_id}/log-token-usage
+{
+  "agent_id": "AD-Review",
+  "model": "minimax-m2.7",
+  "input_tokens": <from LLM response>,
+  "output_tokens": <from LLM response>,
+  "description": "Contract review — 3 agreements assessed"
+}
