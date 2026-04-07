@@ -1,0 +1,188 @@
+{% extends "base.html" %}
+{% block title %}Briefing — {{ matter.ref }} — AD Legal OS{% endblock %}
+{% block page_title %}Briefing Interview <span class="text-muted">— {{ matter.ref }}</span>{% endblock %}
+
+{% block content %}
+<div class="panel" style="max-width: 800px;">
+  <div class="panel-header">
+    <div>
+      <h2 class="panel-title">{{ matter.client_name }}</h2>
+      <div class="text-sm text-muted">{{ matter.matter_type }} &middot; {{ matter.ref }}</div>
+    </div>
+    <div class="text-sm">
+      <span class="phase-badge {{ phase_class(matter.phase) }}">{{ PHASE_LABELS.get(matter.phase, '') }}</span>
+    </div>
+  </div>
+
+  <div class="panel-body">
+    <!-- Progress bar -->
+    <div style="margin-bottom: 24px;">
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
+        <span class="text-sm" style="font-weight: 600;">Step {{ step }} of {{ total_steps }}</span>
+        <span class="text-xs text-muted">{{ questions|length }} questions total</span>
+      </div>
+      <div style="height: 6px; background: var(--bg-secondary, #1e1e2e); border-radius: 3px; overflow: hidden;">
+        <div style="height: 100%; width: {{ (step / total_steps * 100)|int }}%; background: var(--teal, #1a8a6e); border-radius: 3px; transition: width 0.3s;"></div>
+      </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('matter_briefing_post', matter_id=matter.id) }}" id="briefing-form">
+      <input type="hidden" name="step" id="current-step" value="{{ step }}">
+      <input type="hidden" name="action" id="form-action" value="save_draft">
+
+      {% for q in questions %}
+      {% set step_num = ((loop.index0 // per_step) + 1) %}
+      <div class="briefing-question" data-step="{{ step_num }}" style="{% if step_num != step %}display:none;{% endif %} margin-bottom: 20px;">
+        <label class="form-label" style="font-weight: 600; margin-bottom: 6px; display: block;">
+          {{ q.label }}
+          {% if q.required %}<span style="color: var(--crimson, #c0392b);">*</span>{% endif %}
+        </label>
+
+        {% if q.type == 'select' %}
+        <select name="q_{{ q.id }}" class="form-select" style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg-secondary, #1e1e2e); border: 1px solid var(--border, #333); color: var(--text-primary, #e0e0e0);"
+          {% if q.required %}required{% endif %}>
+          <option value="">Select…</option>
+          {% for opt in q.options %}
+          <option value="{{ opt }}" {% if existing.get(q.id) == opt or (not existing.get(q.id) and q.get('default') == opt) %}selected{% endif %}>{{ opt }}</option>
+          {% endfor %}
+        </select>
+
+        {% elif q.type == 'text' %}
+        <input type="text" name="q_{{ q.id }}" class="form-input" value="{{ existing.get(q.id, '') }}"
+          placeholder="{{ q.get('placeholder', '') }}"
+          style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg-secondary, #1e1e2e); border: 1px solid var(--border, #333); color: var(--text-primary, #e0e0e0);"
+          {% if q.required %}required{% endif %}>
+
+        {% elif q.type == 'textarea' %}
+        <textarea name="q_{{ q.id }}" class="form-input" rows="3"
+          placeholder="{{ q.get('placeholder', '') }}"
+          style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg-secondary, #1e1e2e); border: 1px solid var(--border, #333); color: var(--text-primary, #e0e0e0); resize: vertical;"
+          {% if q.required %}required{% endif %}>{{ existing.get(q.id, '') }}</textarea>
+
+        {% elif q.type == 'date' %}
+        <input type="date" name="q_{{ q.id }}" class="form-input" value="{{ existing.get(q.id, '') }}"
+          style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg-secondary, #1e1e2e); border: 1px solid var(--border, #333); color: var(--text-primary, #e0e0e0);"
+          {% if q.required %}required{% endif %}>
+
+        {% elif q.type == 'number' %}
+        <input type="number" name="q_{{ q.id }}" class="form-input" value="{{ existing.get(q.id, '') }}"
+          placeholder="{{ q.get('placeholder', '') }}"
+          style="width: 100%; padding: 8px; border-radius: 6px; background: var(--bg-secondary, #1e1e2e); border: 1px solid var(--border, #333); color: var(--text-primary, #e0e0e0);"
+          {% if q.required %}required{% endif %}>
+
+        {% elif q.type == 'radio' %}
+        <div style="display: flex; gap: 16px; flex-wrap: wrap; margin-top: 4px;">
+          {% for opt in q.options %}
+          <label style="display: flex; align-items: center; gap: 6px; cursor: pointer; font-size: 14px; color: var(--text-primary, #e0e0e0);">
+            <input type="radio" name="q_{{ q.id }}" value="{{ opt }}"
+              {% if existing.get(q.id) == opt %}checked{% endif %}
+              {% if q.required %}required{% endif %}>
+            {{ opt }}
+          </label>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+
+      <!-- Navigation buttons -->
+      <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 24px; padding-top: 16px; border-top: 1px solid var(--border, #333);">
+        <div style="display: flex; gap: 8px;">
+          {% if step > 1 %}
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-back">Back</button>
+          {% endif %}
+          <button type="button" class="btn btn-secondary btn-sm" id="btn-save-draft" onclick="submitDraft()">Save Draft</button>
+        </div>
+        <div style="display: flex; gap: 8px;">
+          {% if step < total_steps %}
+          <button type="button" class="btn btn-primary btn-sm" id="btn-next">Next</button>
+          {% else %}
+          <button type="button" class="btn btn-primary" id="btn-confirm" onclick="submitConfirm()">Confirm Briefing</button>
+          {% endif %}
+        </div>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+(function() {
+  var currentStep = {{ step }};
+  var totalSteps = {{ total_steps }};
+  var perStep = {{ per_step }};
+  var form = document.getElementById('briefing-form');
+  var stepInput = document.getElementById('current-step');
+  var actionInput = document.getElementById('form-action');
+
+  function showStep(n) {
+    document.querySelectorAll('.briefing-question').forEach(function(el) {
+      el.style.display = (parseInt(el.dataset.step) === n) ? 'block' : 'none';
+    });
+    currentStep = n;
+    stepInput.value = n;
+
+    var progress = document.querySelector('[style*="background: var(--teal"]');
+    if (progress) progress.style.width = Math.round(n / totalSteps * 100) + '%';
+
+    var stepLabel = document.querySelector('[style*="font-weight: 600"]');
+    if (stepLabel) stepLabel.textContent = 'Step ' + n + ' of ' + totalSteps;
+
+    var backBtn = document.getElementById('btn-back');
+    var nextBtn = document.getElementById('btn-next');
+    var confirmBtn = document.getElementById('btn-confirm');
+
+    if (n <= 1 && backBtn) backBtn.style.display = 'none';
+    else if (backBtn) backBtn.style.display = '';
+
+    if (n >= totalSteps) {
+      if (nextBtn) nextBtn.style.display = 'none';
+      if (!confirmBtn) {
+        var btnArea = document.querySelector('[style*="display: flex; gap: 8px"]:last-child') ||
+                      nextBtn.parentElement;
+        var cb = document.createElement('button');
+        cb.type = 'button';
+        cb.className = 'btn btn-primary';
+        cb.id = 'btn-confirm';
+        cb.textContent = 'Confirm Briefing';
+        cb.onclick = submitConfirm;
+        btnArea.appendChild(cb);
+      } else {
+        confirmBtn.style.display = '';
+      }
+    } else {
+      if (confirmBtn) confirmBtn.style.display = 'none';
+      if (!nextBtn) {
+        var btnArea2 = confirmBtn ? confirmBtn.parentElement : null;
+        if (btnArea2) {
+          var nb = document.createElement('button');
+          nb.type = 'button';
+          nb.className = 'btn btn-primary btn-sm';
+          nb.id = 'btn-next';
+          nb.textContent = 'Next';
+          nb.onclick = function() { showStep(currentStep + 1); };
+          btnArea2.appendChild(nb);
+        }
+      } else {
+        nextBtn.style.display = '';
+      }
+    }
+  }
+
+  var backBtn = document.getElementById('btn-back');
+  if (backBtn) backBtn.addEventListener('click', function() { if (currentStep > 1) showStep(currentStep - 1); });
+
+  var nextBtn = document.getElementById('btn-next');
+  if (nextBtn) nextBtn.addEventListener('click', function() { if (currentStep < totalSteps) showStep(currentStep + 1); });
+
+  window.submitDraft = function() {
+    actionInput.value = 'save_draft';
+    form.submit();
+  };
+
+  window.submitConfirm = function() {
+    actionInput.value = 'confirm';
+    form.submit();
+  };
+})();
+</script>
+{% endblock %}

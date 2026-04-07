@@ -17,6 +17,10 @@
       <option value="{{ pa }}" {% if filter_pa == pa %}selected{% endif %}>{{ pa }}</option>
       {% endfor %}
     </select>
+    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary, #999); white-space: nowrap; cursor: pointer;">
+      <input type="checkbox" name="briefing_filter" value="incomplete" {% if briefing_filter == 'incomplete' %}checked{% endif %}>
+      Briefing incomplete
+    </label>
     <button type="submit" class="btn btn-sm">Filter</button>
     <a href="{{ url_for('matters') }}" class="btn btn-sm btn-ghost">Clear</a>
   </form>
@@ -44,6 +48,7 @@
           <th>Matter Type</th>
           <th>Confidence</th>
           <th>Status</th>
+          <th>Briefing</th>
           <th>Compliance</th>
           <th>Created</th>
         </tr>
@@ -76,6 +81,17 @@
               <span class="hitl-badge hitl-awaiting">◐</span>
             {% elif m.hitl_status == 'paused' %}
               <span class="hitl-badge hitl-paused">⊘</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if m.briefing_status == 'complete' %}
+              <span class="status-dot status-teal" style="display:inline-block;width:8px;height:8px;border-radius:50%;" title="Briefing Complete"></span>
+            {% elif m.briefing_status == 'draft' %}
+              <span class="status-dot status-blue" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3b82f6;" title="Briefing Draft"></span>
+            {% elif m.briefing_status == 'pending' %}
+              <span class="status-dot status-amber" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;" title="Briefing Pending"></span>
+            {% else %}
+              <span class="text-muted" style="font-size:11px;">—</span>
             {% endif %}
           </td>
           <td>

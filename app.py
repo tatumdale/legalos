@@ -21,10 +21,135 @@ BASE_DIR.mkdir(parents=True, exist_ok=True)
 app = Flask(__name__)
 app.secret_key = os.urandom(32)
 
+# =============================================================================
+# BRIEFING INTERVIEW — Question Templates
+# =============================================================================
+
+CORE_BRIEFING_QUESTIONS = [
+    {'id': 'jurisdiction', 'label': 'Jurisdiction', 'type': 'select', 'required': True,
+     'options': ['England and Wales', 'Scotland', 'Northern Ireland', 'Other'],
+     'default': 'England and Wales'},
+    {'id': 'client_type', 'label': 'Client Type', 'type': 'select', 'required': True,
+     'options': ['Startup', 'SME', 'Large Corporate', 'Individual', 'Public Sector']},
+    {'id': 'counterparty', 'label': 'Counterparty', 'type': 'text', 'required': False,
+     'placeholder': 'Name of counterparty (if known)'},
+    {'id': 'deal_value_band', 'label': 'Deal Value Band', 'type': 'select', 'required': True,
+     'options': ['Under £10K', '£10K–£100K', '£100K–£1M', 'Over £1M', 'Undisclosed']},
+    {'id': 'deadline', 'label': 'Deadline', 'type': 'date', 'required': False},
+    {'id': 'risk_appetite', 'label': 'Risk Appetite', 'type': 'radio', 'required': True,
+     'options': ['Conservative', 'Balanced', 'Commercial']},
+]
+
+CONDITIONAL_QUESTIONS = {
+    'Contract Review': [
+        {'id': 'contract_type', 'label': 'Contract Type', 'type': 'select', 'required': True,
+         'options': ['Service Agreement', 'Supply Agreement', 'Licence', 'Lease', 'NDA', 'Other']},
+        {'id': 'contract_duration', 'label': 'Contract Duration', 'type': 'text', 'required': False,
+         'placeholder': 'e.g. 12 months, indefinite'},
+        {'id': 'known_problem_areas', 'label': 'Known Problem Areas', 'type': 'textarea', 'required': False,
+         'placeholder': 'Any specific clauses or issues you want reviewed'},
+        {'id': 'negotiation_expected', 'label': 'Negotiation Expected?', 'type': 'radio', 'required': True,
+         'options': ['Yes', 'No', 'Possibly']},
+    ],
+    'Company Formation': [
+        {'id': 'structure', 'label': 'Company Structure', 'type': 'select', 'required': True,
+         'options': ['Private Limited (Ltd)', 'LLP', 'PLC', 'CIC', 'Other']},
+        {'id': 'incorporation_jurisdiction', 'label': 'Incorporation Jurisdiction', 'type': 'select', 'required': True,
+         'options': ['England and Wales', 'Scotland', 'Northern Ireland', 'Other']},
+        {'id': 'num_directors', 'label': 'Number of Directors', 'type': 'number', 'required': True,
+         'placeholder': 'e.g. 2'},
+        {'id': 'num_shareholders', 'label': 'Number of Shareholders', 'type': 'number', 'required': True,
+         'placeholder': 'e.g. 2'},
+        {'id': 'specific_requirements', 'label': 'Specific Requirements', 'type': 'textarea', 'required': False,
+         'placeholder': 'Articles amendments, shareholder agreements, etc.'},
+    ],
+    'Employment': [
+        {'id': 'employee_level', 'label': 'Employee Level', 'type': 'select', 'required': True,
+         'options': ['Junior', 'Mid-level', 'Senior', 'Director / C-suite']},
+        {'id': 'equity_incentives', 'label': 'Equity / Incentive Schemes?', 'type': 'radio', 'required': True,
+         'options': ['Yes', 'No', 'Under consideration']},
+        {'id': 'restrictive_covenants_scope', 'label': 'Restrictive Covenants Scope', 'type': 'textarea', 'required': False,
+         'placeholder': 'Non-compete, non-solicit, gardening leave details'},
+    ],
+    'M&A': [
+        {'id': 'deal_type', 'label': 'Deal Type', 'type': 'select', 'required': True,
+         'options': ['Share Purchase', 'Asset Purchase', 'Merger', 'Management Buyout', 'Other']},
+        {'id': 'deal_stage', 'label': 'Deal Stage', 'type': 'select', 'required': True,
+         'options': ['Pre-LOI', 'LOI Signed', 'Due Diligence', 'Negotiation', 'Completion']},
+        {'id': 'target_jurisdiction', 'label': 'Target Jurisdiction', 'type': 'select', 'required': True,
+         'options': ['England and Wales', 'Scotland', 'Northern Ireland', 'EU', 'International']},
+    ],
+}
+
+def get_briefing_questions(matter_type):
+    questions = list(CORE_BRIEFING_QUESTIONS)
+    conditional = CONDITIONAL_QUESTIONS.get(matter_type, [])
+    questions.extend(conditional)
+    return questions
+
+def format_briefing_summary(briefing_json):
+    if not briefing_json:
+        return ''
+    try:
+        answers = json.loads(briefing_json) if isinstance(briefing_json, str) else briefing_json
+    except (json.JSONDecodeError, TypeError):
+        return ''
+    lines = ['## Briefing Summary\n']
+    label_map = {}
+    for q in CORE_BRIEFING_QUESTIONS:
+        label_map[q['id']] = q['label']
+    for qlist in CONDITIONAL_QUESTIONS.values():
+        for q in qlist:
+            label_map[q['id']] = q['label']
+    for key, value in answers.items():
+        if value:
+            label = label_map.get(key, key.replace('_', ' ').title())
+            lines.append(f'**{label}:** {value}')
+    return '\n'.join(lines)
+
+
+def init_briefing_schema(db):
+    for col, typedef in [('briefing', 'TEXT'),
+                         ('briefing_status', "TEXT DEFAULT 'not_required'"),
+                         ('briefing_completed_at', 'TEXT')]:
+        try:
+            db.execute(f'ALTER TABLE matters ADD COLUMN {col} {typedef}')
+        except Exception:
+            pass
+    db.execute('''CREATE TABLE IF NOT EXISTS matter_type_config (
+        id TEXT PRIMARY KEY,
+        practice_area TEXT NOT NULL,
+        service_line TEXT,
+        tier INTEGER DEFAULT 1,
+        briefing_behaviour TEXT DEFAULT 'recommended',
+        briefing_template_json TEXT,
+        verification_enabled INTEGER DEFAULT 0,
+        verification_max_loops INTEGER DEFAULT 2,
+        verification_criteria_json TEXT,
+        updated_at TEXT
+    )''')
+    existing = db.execute('SELECT COUNT(*) FROM matter_type_config').fetchone()[0]
+    if existing == 0:
+        now = datetime.now().isoformat()
+        defaults = [
+            ('mtc-001', 'Corporate', 'Company Formation', 1, 'recommended', now),
+            ('mtc-002', 'Corporate', 'M&A', 1, 'recommended', now),
+            ('mtc-003', 'Corporate', 'Shareholders', 1, 'recommended', now),
+            ('mtc-004', 'Employment', 'Employment Contracts', 1, 'recommended', now),
+            ('mtc-005', 'Employment', 'Settlement Agreements', 1, 'recommended', now),
+            ('mtc-006', 'Dispute Resolution', 'Commercial Dispute', 1, 'recommended', now),
+            ('mtc-007', 'Data Protection', 'GDPR Compliance Audit', 1, 'recommended', now),
+            ('mtc-008', 'Commercial Property', 'Lease Review', 1, 'recommended', now),
+        ]
+        for row in defaults:
+            db.execute('INSERT OR IGNORE INTO matter_type_config (id, practice_area, service_line, tier, briefing_behaviour, updated_at) VALUES (?,?,?,?,?,?)', row)
+    db.commit()
+
 def get_db():
     if 'db' not in g:
         g.db = sqlite3.connect(str(DB_PATH), detect_types=sqlite3.PARSE_DECLTYPES)
         g.db.row_factory = sqlite3.Row
+        init_briefing_schema(g.db)
     return g.db
 
 @app.teardown_appcontext
@@ -132,6 +257,7 @@ def inject_globals():
                 format_datetime=format_datetime, format_currency=format_currency,
                 matter_compliance_score=matter_compliance_score,
                 matter_status_class=matter_status_class, hitl_class=hitl_class, HITL_LABELS=HITL_LABELS,
+                format_briefing_summary=format_briefing_summary,
                 db=get_db, cfg=get_firm_config())
 
 app.context_processor(inject_globals)
@@ -174,6 +300,7 @@ def matters():
     fs = request.args.get('status', '')
     fp = request.args.get('phase', '')
     fpa = request.args.get('practice_area', '')
+    bf = request.args.get('briefing_filter', '')
     q = 'SELECT * FROM matters WHERE 1=1'
     args = []
     if fs:
@@ -185,10 +312,12 @@ def matters():
     if fpa:
         q += ' AND practice_area=?'
         args.append(fpa)
+    if bf == 'incomplete':
+        q += " AND briefing_status IN ('pending', 'draft')"
     q+=' ORDER BY created_at DESC'
     all_matters=db.execute(q,args).fetchall()
     pas=[r['practice_area'] for r in db.execute('SELECT DISTINCT practice_area FROM matters') if r['practice_area']]
-    return render_template('matters.html',cfg=cfg,matters=all_matters,filter_status=fs,filter_phase=fp,filter_pa=fpa,practice_areas=pas)
+    return render_template('matters.html',cfg=cfg,matters=all_matters,filter_status=fs,filter_phase=fp,filter_pa=fpa,briefing_filter=bf,practice_areas=pas)
 
 @app.route('/matters/gdrive')
 def matters_gdrive():
@@ -769,6 +898,71 @@ def seed():
         db.execute('INSERT OR IGNORE INTO matter_types (id,practice_area_slug,name,slug,ai_effort,delivery_pattern,fee_estimate) VALUES (?,?,?,?,?,?,?)', row)
     db.commit()
     return jsonify({'status': 'ok', 'message': 'Seed data loaded'})
+
+
+# =============================================================================
+# BRIEFING INTERVIEW ROUTES
+# =============================================================================
+
+@app.route('/matter/<matter_id>/briefing', methods=['GET'])
+def matter_briefing(matter_id):
+    db = get_db()
+    cfg = get_firm_config()
+    matter = db.execute('SELECT * FROM matters WHERE id=?', (matter_id,)).fetchone()
+    if not matter:
+        flash('Matter not found.', 'error')
+        return redirect(url_for('matters'))
+    matter = dict(matter)
+    questions = get_briefing_questions(matter.get('matter_type', ''))
+    existing = {}
+    if matter.get('briefing'):
+        try:
+            existing = json.loads(matter['briefing'])
+        except (json.JSONDecodeError, TypeError):
+            pass
+    step = int(request.args.get('step', 1))
+    per_step = 5
+    total_steps = (len(questions) + per_step - 1) // per_step
+    step = max(1, min(step, total_steps))
+    return render_template('briefing_wizard.html', cfg=cfg, matter=matter,
+        questions=questions, existing=existing, step=step, total_steps=total_steps,
+        per_step=per_step)
+
+
+@app.route('/matter/<matter_id>/briefing', methods=['POST'])
+def matter_briefing_post(matter_id):
+    db = get_db()
+    matter = db.execute('SELECT * FROM matters WHERE id=?', (matter_id,)).fetchone()
+    if not matter:
+        flash('Matter not found.', 'error')
+        return redirect(url_for('matters'))
+    matter = dict(matter)
+    action = request.form.get('action', 'save_draft')
+    answers = {}
+    for key, value in request.form.items():
+        if key.startswith('q_'):
+            answers[key[2:]] = value.strip()
+    now = datetime.now().isoformat()
+    briefing_json = json.dumps(answers)
+    if action == 'confirm':
+        summary_text = format_briefing_summary(answers)
+        existing_notes = matter.get('notes') or ''
+        updated_notes = (existing_notes + '\n\n---\n' + summary_text).strip() if existing_notes else summary_text
+        db.execute('UPDATE matters SET briefing=?, briefing_status=?, briefing_completed_at=?, notes=?, updated_at=? WHERE id=?',
+                   (briefing_json, 'complete', now, updated_notes, now, matter_id))
+        db.execute('INSERT INTO audit_log (id,matter_id,agent_id,action_type,detail,human_override,human_reviewer,created_at) VALUES (?,?,?,?,?,1,?,?)',
+                   (str(uuid.uuid4()), matter_id, 'AD-Intake', 'briefing_confirmed',
+                    f'Briefing interview completed with {len(answers)} answers',
+                    'Fee Earner (via Legal OS)', now))
+        db.commit()
+        flash('Briefing confirmed and saved.', 'success')
+        return redirect(url_for('matter_detail', matter_id=matter_id))
+    else:
+        db.execute('UPDATE matters SET briefing=?, briefing_status=?, updated_at=? WHERE id=?',
+                   (briefing_json, 'draft', now, matter_id))
+        db.commit()
+        flash('Briefing draft saved.', 'info')
+        return redirect(url_for('matter_briefing', matter_id=matter_id))
 
 
 # =============================================================================

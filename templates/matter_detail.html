@@ -20,6 +20,15 @@
             <span class="phase-badge {{ phase_class(matter.phase) }}">{{ PHASE_LABELS.get(matter.phase, '') }}</span>
             <span class="status-badge {{ matter_status_class(matter.status) }} lg">{{ STATUS_LABELS.get(matter.status, matter.status) }}</span>
             <span class="hitl-badge {{ hitl_class(matter.hitl_status) }}">{{ HITL_LABELS.get(matter.hitl_status, '') }}</span>
+            {% if matter.briefing_status == 'complete' %}
+              <span class="status-badge status-teal">Briefing Complete</span>
+            {% elif matter.briefing_status == 'draft' %}
+              <span class="status-badge status-blue">Briefing Draft</span>
+            {% elif matter.briefing_status == 'pending' %}
+              <span class="status-badge status-amber">Briefing Pending</span>
+            {% elif matter.briefing_status == 'skipped' %}
+              <span class="status-badge status-muted">Briefing Skipped</span>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -88,6 +97,36 @@
       </div>
       {% endif %}
     </div>
+
+    <!-- Briefing Section -->
+    {% if matter.briefing_status == 'complete' %}
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Briefing</h2>
+        <span class="status-badge status-teal">Complete</span>
+      </div>
+      <div class="panel-body">
+        <div class="document-view" style="white-space: pre-wrap;">{{ format_briefing_summary(matter.briefing) }}</div>
+      </div>
+    </div>
+    {% elif matter.briefing_status in ['pending', 'draft'] %}
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Briefing</h2>
+        <span class="status-badge {% if matter.briefing_status == 'draft' %}status-blue{% else %}status-amber{% endif %}">
+          {{ 'Draft' if matter.briefing_status == 'draft' else 'Pending' }}
+        </span>
+      </div>
+      <div class="panel-body">
+        <p class="text-sm text-muted" style="margin-bottom: 12px;">Complete the briefing interview to provide structured context for agent work.</p>
+        <a href="{{ url_for('matter_briefing', matter_id=matter.id) }}" class="btn btn-primary btn-sm">
+          {% if matter.briefing_status == 'draft' %}Continue Briefing{% else %}Prepare Briefing{% endif %}
+        </a>
+      </div>
+    </div>
+    {% elif matter.briefing_status in ['not_required', None] %}
+    {# Show action button in sidebar instead #}
+    {% endif %}
 
     <!-- Client Communications -->
     <div class="panel" id="comms-panel">
@@ -1045,6 +1084,19 @@
       </div>
       <div class="panel-body">
         <p class="text-sm">{{ matter.notes }}</p>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Briefing Action -->
+    {% if matter.briefing_status in ['pending', 'not_required', None] %}
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Briefing Interview</h2>
+      </div>
+      <div class="panel-body">
+        <p class="text-sm text-muted" style="margin-bottom: 8px;">Collect structured context before agent work begins.</p>
+        <a href="{{ url_for('matter_briefing', matter_id=matter.id) }}" class="btn btn-primary btn-block btn-sm">Prepare Briefing</a>
       </div>
     </div>
     {% endif %}
