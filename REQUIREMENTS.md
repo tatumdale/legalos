@@ -126,7 +126,23 @@ This is added to every agent that receives a task for this matter, automatically
 
 ---
 
-## Feature 2: Iterative Verification Loops (Ralph Pattern)
+## Feature 2: Iterative Verification Loops (Ralph Pattern) — BUILT (Sprint 3)
+
+**Status:** BUILT — 2026-04-07
+
+**Implementation Notes:**
+- `verification_log` and `verification_criteria` tables created in `init_briefing_schema()`
+- 28 default verification criteria seeded across Contract Review, Contract Drafting, Company Formation, Employment, and Employment Tribunal Claim
+- Routes: GET `/matter/<id>/verification-log`, POST `/matter/<id>/verify`, POST `/matter/<id>/verification-clear`
+- `verification_log.html` template with loop-by-loop check results and revision prompts
+- Verification status badge and section card on matter detail page
+- Verification filter and status dot on matters list
+- AD-Verify agent files created (`workspace-ad-verify-SOUL.md`, `workspace-ad-verify-AGENTS.md`)
+- AD-Review and AD-Drafting SOUL.md updated with verification loop protocol
+- AD-Partner routing updated to include AD-Verify in the agent team
+- Verification criteria management UI in Settings > Engagement (toggle, add criteria)
+- Current verification is a structural check (output present); full AD-Verify agent integration is the next step
+- Max loops default: 2; matters flagged `verification_failed` after max loops exceeded
 
 ### What It Is
 

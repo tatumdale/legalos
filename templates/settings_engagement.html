@@ -21,6 +21,7 @@
   <div class="panel-body no-padding">
     {% if configs %}
     <form method="POST">
+      <input type="hidden" name="form_tab" value="briefing">
       <table class="data-table">
         <thead>
           <tr>
@@ -74,6 +75,88 @@
         <tr><td class="text-muted">Off</td><td class="text-sm">No briefing interview for this matter type. Agents use the matter record only.</td></tr>
       </tbody>
     </table>
+  </div>
+</div>
+
+<div class="panel" style="margin-top: 24px;">
+  <div class="panel-header">
+    <div>
+      <h2 class="panel-title">Verification Criteria</h2>
+      <span class="text-xs text-muted">Criteria checked by AD-Verify after agent output. Toggle to enable/disable individual checks.</span>
+    </div>
+  </div>
+  <div class="panel-body no-padding">
+    {% if vc_by_area %}
+    <form method="POST">
+      <input type="hidden" name="form_tab" value="verification_toggle">
+      {% for pa, criteria in vc_by_area.items() %}
+      <div style="padding: 12px 16px 4px; border-bottom: 1px solid var(--border, #333);">
+        <h3 style="font-size: 14px; font-weight: 600; color: var(--teal, #1abc9c); margin-bottom: 8px;">{{ pa }}</h3>
+        {% for c in criteria %}
+        <div style="display: flex; align-items: center; gap: 10px; padding: 6px 0; font-size: 13px;">
+          <input type="checkbox" name="vc_enabled_{{ c.id }}" {% if c.enabled %}checked{% endif %}
+            style="accent-color: var(--teal, #1abc9c);">
+          <span class="tag" style="font-size: 11px;">Tier {{ c.tier }}</span>
+          {% if c.service_line %}
+          <span class="text-xs text-muted">{{ c.service_line }}</span>
+          {% endif %}
+          <span>{{ c.criterion }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endfor %}
+      <div style="padding: 16px; display: flex; justify-content: flex-end;">
+        <button type="submit" class="btn btn-primary">Save Criteria</button>
+      </div>
+    </form>
+    {% else %}
+    <div class="empty-state">
+      <p>No verification criteria found. They will be created automatically on first run.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="panel" style="margin-top: 16px;">
+  <div class="panel-header">
+    <h2 class="panel-title">Add Verification Criterion</h2>
+  </div>
+  <div class="panel-body">
+    <form method="POST">
+      <input type="hidden" name="form_tab" value="verification_add">
+      <div style="display: grid; grid-template-columns: 1fr 1fr 100px; gap: 10px; margin-bottom: 10px;">
+        <div>
+          <label class="text-xs text-muted" style="display: block; margin-bottom: 4px;">Practice Area</label>
+          <input type="text" name="new_pa" class="form-input" placeholder="e.g. Contract Review" required
+            style="width: 100%; padding: 6px 8px; border-radius: 6px; background: var(--bg-secondary, #1e1e2e); border: 1px solid var(--border, #333); color: var(--text-primary, #e0e0e0); font-size: 13px;">
+        </div>
+        <div>
+          <label class="text-xs text-muted" style="display: block; margin-bottom: 4px;">Service Line (optional)</label>
+          <input type="text" name="new_sl" class="form-input" placeholder="e.g. Reviewing"
+            style="width: 100%; padding: 6px 8px; border-radius: 6px; background: var(--bg-secondary, #1e1e2e); border: 1px solid var(--border, #333); color: var(--text-primary, #e0e0e0); font-size: 13px;">
+        </div>
+        <div>
+          <label class="text-xs text-muted" style="display: block; margin-bottom: 4px;">Tier</label>
+          <select name="new_tier" class="form-select"
+            style="width: 100%; padding: 6px 8px; border-radius: 6px; background: var(--bg-secondary, #1e1e2e); border: 1px solid var(--border, #333); color: var(--text-primary, #e0e0e0); font-size: 13px;">
+            <option value="1">Tier 1</option>
+            <option value="2" selected>Tier 2</option>
+            <option value="3">Tier 3</option>
+          </select>
+        </div>
+      </div>
+      <div style="margin-bottom: 10px;">
+        <label class="text-xs text-muted" style="display: block; margin-bottom: 4px;">Criterion</label>
+        <input type="text" name="new_criterion" class="form-input" placeholder="e.g. Governing law and jurisdiction clause present" required
+          style="width: 100%; padding: 6px 8px; border-radius: 6px; background: var(--bg-secondary, #1e1e2e); border: 1px solid var(--border, #333); color: var(--text-primary, #e0e0e0); font-size: 13px;">
+      </div>
+      <div style="margin-bottom: 10px;">
+        <label class="text-xs text-muted" style="display: block; margin-bottom: 4px;">Description (optional)</label>
+        <input type="text" name="new_description" class="form-input" placeholder="Detailed explanation of this check"
+          style="width: 100%; padding: 6px 8px; border-radius: 6px; background: var(--bg-secondary, #1e1e2e); border: 1px solid var(--border, #333); color: var(--text-primary, #e0e0e0); font-size: 13px;">
+      </div>
+      <button type="submit" class="btn btn-secondary">Add Criterion</button>
+    </form>
   </div>
 </div>
 {% endblock %}

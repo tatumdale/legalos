@@ -29,6 +29,14 @@
             {% elif matter.briefing_status == 'skipped' %}
               <span class="status-badge status-muted">Briefing Skipped</span>
             {% endif %}
+            {% if verification_status %}
+              {% if verification_status.last_pass %}
+                <span class="status-badge status-teal">Verification Passed</span>
+              {% else %}
+                <span class="status-badge status-crimson">Verification Failed</span>
+              {% endif %}
+              <span class="text-xs text-muted">({{ verification_status.count }} run{{ 's' if verification_status.count != 1 else '' }})</span>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -127,6 +135,54 @@
     {% elif matter.briefing_status in ['not_required', None] %}
     {# Show action button in sidebar instead #}
     {% endif %}
+
+    <!-- Verification Section -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Verification</h2>
+        {% if verification_status %}
+          {% if verification_status.last_pass %}
+            <span class="check-icon teal lg">✓ All checks passed</span>
+          {% else %}
+            <span class="check-icon crimson lg">✗ Checks failed</span>
+          {% endif %}
+        {% endif %}
+      </div>
+      <div class="panel-body">
+        {% if verification_status %}
+          {% if verification_status.last_pass %}
+            <div style="display: flex; align-items: center; gap: 12px;">
+              <span class="status-badge status-teal">All checks passed</span>
+              <a href="{{ url_for('matter_verification_log', matter_id=matter.id) }}" class="btn btn-sm btn-ghost">View Full Log</a>
+            </div>
+          {% else %}
+            <div style="margin-bottom: 12px;">
+              <span class="status-badge status-crimson">Verification failed</span>
+              <span class="text-sm text-muted" style="margin-left: 8px;">{{ verification_status.count }} run{{ 's' if verification_status.count != 1 else '' }} completed</span>
+            </div>
+            <div style="display: flex; gap: 8px; align-items: center;">
+              <a href="{{ url_for('matter_verification_log', matter_id=matter.id) }}" class="btn btn-sm btn-ghost">View Full Log</a>
+              <form method="POST" action="{{ url_for('matter_run_verify', matter_id=matter.id) }}" style="margin: 0;">
+                <button type="submit" class="btn btn-sm btn-primary">Re-run Verification</button>
+              </form>
+            </div>
+            {% if matter.sub_status == 'verification_failed' %}
+            <div style="margin-top: 12px; padding: 10px; background: rgba(231, 76, 60, 0.1); border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 6px;">
+              <span class="text-sm" style="color: #e74c3c;">Max loops reached — flagged for human review.</span>
+              <form method="POST" action="{{ url_for('matter_verification_clear', matter_id=matter.id) }}" style="display: inline; margin-left: 8px;">
+                <button type="submit" class="btn btn-sm btn-secondary">Clear Flag</button>
+              </form>
+            </div>
+            {% endif %}
+          {% endif %}
+        {% else %}
+          <p class="text-sm text-muted" style="margin-bottom: 12px;">No verification runs yet. Run a verification check against defined criteria.</p>
+          <form method="POST" action="{{ url_for('matter_run_verify', matter_id=matter.id) }}" style="margin: 0;">
+            <button type="submit" class="btn btn-primary btn-sm">Run Verification</button>
+          </form>
+        {% endif %}
+      </div>
+    </div>
 
     <!-- Client Communications -->
     <div class="panel" id="comms-panel">

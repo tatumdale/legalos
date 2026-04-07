@@ -21,6 +21,10 @@
       <input type="checkbox" name="briefing_filter" value="incomplete" {% if briefing_filter == 'incomplete' %}checked{% endif %}>
       Briefing incomplete
     </label>
+    <label style="display: flex; align-items: center; gap: 6px; font-size: 13px; color: var(--text-secondary, #999); white-space: nowrap; cursor: pointer;">
+      <input type="checkbox" name="verification_filter" value="failed" {% if verification_filter == 'failed' %}checked{% endif %}>
+      Verification failed
+    </label>
     <button type="submit" class="btn btn-sm">Filter</button>
     <a href="{{ url_for('matters') }}" class="btn btn-sm btn-ghost">Clear</a>
   </form>
@@ -49,6 +53,7 @@
           <th>Confidence</th>
           <th>Status</th>
           <th>Briefing</th>
+          <th>Verify</th>
           <th>Compliance</th>
           <th>Created</th>
         </tr>
@@ -90,6 +95,18 @@
               <span class="status-dot status-blue" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#3b82f6;" title="Briefing Draft"></span>
             {% elif m.briefing_status == 'pending' %}
               <span class="status-dot status-amber" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#f59e0b;" title="Briefing Pending"></span>
+            {% else %}
+              <span class="text-muted" style="font-size:11px;">—</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if verification_statuses.get(m.id) %}
+              {% set vs = verification_statuses[m.id] %}
+              {% if vs.last_pass %}
+                <span class="status-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#1abc9c;" title="Verification Passed"></span>
+              {% else %}
+                <span class="status-dot" style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#e74c3c;" title="Verification Failed"></span>
+              {% endif %}
             {% else %}
               <span class="text-muted" style="font-size:11px;">—</span>
             {% endif %}

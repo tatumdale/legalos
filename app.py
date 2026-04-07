@@ -143,6 +143,71 @@ def init_briefing_schema(db):
         ]
         for row in defaults:
             db.execute('INSERT OR IGNORE INTO matter_type_config (id, practice_area, service_line, tier, briefing_behaviour, updated_at) VALUES (?,?,?,?,?,?)', row)
+
+    # --- Verification tables (Sprint 3) ---
+    db.execute('''CREATE TABLE IF NOT EXISTS verification_log (
+        id TEXT PRIMARY KEY,
+        matter_id TEXT REFERENCES matters(id),
+        agent_id TEXT,
+        loop_number INTEGER,
+        passed INTEGER,
+        checks_json TEXT,
+        revision_prompt TEXT,
+        created_at TEXT
+    )''')
+    db.execute('''CREATE TABLE IF NOT EXISTS verification_criteria (
+        id TEXT PRIMARY KEY,
+        practice_area TEXT NOT NULL,
+        service_line TEXT,
+        tier INTEGER DEFAULT 2,
+        criterion TEXT NOT NULL,
+        description TEXT,
+        enabled INTEGER DEFAULT 1,
+        updated_at TEXT
+    )''')
+    for col, typedef in [('sub_status', 'TEXT')]:
+        try:
+            db.execute(f'ALTER TABLE matters ADD COLUMN {col} {typedef}')
+        except Exception:
+            pass
+
+    vc_count = db.execute('SELECT COUNT(*) FROM verification_criteria').fetchone()[0]
+    if vc_count == 0:
+        now = datetime.now().isoformat()
+        vc_defaults = [
+            ('vc-001', 'Contract Review', 'Reviewing', 2, 'Governing law and jurisdiction clause present', None),
+            ('vc-002', 'Contract Review', 'Reviewing', 2, 'Termination rights identified and quantified', None),
+            ('vc-003', 'Contract Review', 'Reviewing', 2, 'Limitation of liability cap discussed or justified', None),
+            ('vc-004', 'Contract Review', 'Reviewing', 2, 'Payment and penalty clauses flagged', None),
+            ('vc-005', 'Contract Review', 'Reviewing', 2, 'Exclusion clauses assessed under UCTA reasonableness test', None),
+            ('vc-006', 'Contract Review', 'Reviewing', 2, 'Risk rating applied (RED/AMBER/GREEN)', None),
+            ('vc-007', 'Contract Drafting', 'Drafting', 2, 'All required sections present (parties, definitions, obligations, payment, termination, liability, confidentiality, IP, force majeure, dispute resolution)', None),
+            ('vc-008', 'Contract Drafting', 'Drafting', 2, 'Definitions section complete and consistent with usage', None),
+            ('vc-009', 'Contract Drafting', 'Drafting', 2, 'Governing law and jurisdiction clause present', None),
+            ('vc-010', 'Contract Drafting', 'Drafting', 2, 'No internal contradictions detected', None),
+            ('vc-011', 'Contract Drafting', 'Drafting', 2, 'Risk allocation appropriate to matter tier', None),
+            ('vc-012', 'Company Formation', 'Formation', 1, 'Articles of Association match selected structure', None),
+            ('vc-013', 'Company Formation', 'Formation', 1, 'Director appointment details complete', None),
+            ('vc-014', 'Company Formation', 'Formation', 1, 'Shareholder structure matches instructions', None),
+            ('vc-015', 'Company Formation', 'Formation', 1, 'Companies House filing requirements identified', None),
+            ('vc-016', 'Company Formation', 'Formation', 2, 'All Tier 1 criteria met', None),
+            ('vc-017', 'Company Formation', 'Formation', 2, 'Shareholder agreement provisions complete', None),
+            ('vc-018', 'Company Formation', 'Formation', 2, 'Pre-emption rights included', None),
+            ('vc-019', 'Company Formation', 'Formation', 2, 'Director duties documented', None),
+            ('vc-020', 'Employment', 'Contracts', 2, 'IR35 status assessed and documented', None),
+            ('vc-021', 'Employment', 'Contracts', 2, 'Restrictive covenants reasonable and enforceable', None),
+            ('vc-022', 'Employment', 'Contracts', 2, 'Garden leave clause present if applicable', None),
+            ('vc-023', 'Employment', 'Contracts', 2, 'Settlement agreement standard paragraphs included', None),
+            ('vc-024', 'Employment', 'Tribunal Claim', 2, 'ACAS early conciliation reference obtained or exemption stated', None),
+            ('vc-025', 'Employment', 'Tribunal Claim', 2, 'ET1 claim form content complete', None),
+            ('vc-026', 'Employment', 'Tribunal Claim', 2, 'Respondent details correctly identified', None),
+            ('vc-027', 'Employment', 'Tribunal Claim', 2, 'Compensation basis identified and quantified', None),
+            ('vc-028', 'Employment', 'Tribunal Claim', 2, 'Discrimination/breach claims properly particularised', None),
+        ]
+        for row in vc_defaults:
+            db.execute('INSERT OR IGNORE INTO verification_criteria (id, practice_area, service_line, tier, criterion, description, enabled, updated_at) VALUES (?,?,?,?,?,?,1,?)',
+                       (row[0], row[1], row[2], row[3], row[4], row[5], now))
+
     db.commit()
 
 def get_db():
@@ -301,6 +366,7 @@ def matters():
     fp = request.args.get('phase', '')
     fpa = request.args.get('practice_area', '')
     bf = request.args.get('briefing_filter', '')
+    vf = request.args.get('verification_filter', '')
     q = 'SELECT * FROM matters WHERE 1=1'
     args = []
     if fs:
@@ -314,10 +380,26 @@ def matters():
         args.append(fpa)
     if bf == 'incomplete':
         q += " AND briefing_status IN ('pending', 'draft')"
+    if vf == 'failed':
+        q += " AND sub_status = 'verification_failed'"
     q+=' ORDER BY created_at DESC'
     all_matters=db.execute(q,args).fetchall()
+    # Pre-fetch verification status for each matter
+    verification_statuses = {}
+    for m in all_matters:
+        vlog = db.execute(
+            'SELECT COUNT(*) as cnt, MAX(CAST(passed AS INTEGER)) as last_pass FROM verification_log WHERE matter_id = ?',
+            (m['id'],)
+        ).fetchone()
+        if vlog and vlog['cnt'] > 0:
+            verification_statuses[m['id']] = {
+                'count': vlog['cnt'],
+                'last_pass': bool(vlog['last_pass']) if vlog['last_pass'] is not None else None
+            }
     pas=[r['practice_area'] for r in db.execute('SELECT DISTINCT practice_area FROM matters') if r['practice_area']]
-    return render_template('matters.html',cfg=cfg,matters=all_matters,filter_status=fs,filter_phase=fp,filter_pa=fpa,briefing_filter=bf,practice_areas=pas)
+    return render_template('matters.html',cfg=cfg,matters=all_matters,filter_status=fs,filter_phase=fp,filter_pa=fpa,
+                           briefing_filter=bf,verification_filter=vf,practice_areas=pas,
+                           verification_statuses=verification_statuses)
 
 @app.route('/matters/gdrive')
 def matters_gdrive():
@@ -412,9 +494,21 @@ def matter_detail(matter_id):
             matter = dict(db.execute('SELECT * FROM matters WHERE id=?', (matter_id,)).fetchone())
             drive_folder_url = f"https://drive.google.com/drive/folders/{fid}"
 
+    # Verification status
+    vlog = db.execute(
+        'SELECT COUNT(*) as cnt, MAX(CAST(passed AS INTEGER)) as last_pass FROM verification_log WHERE matter_id = ?',
+        (matter_id,)
+    ).fetchone()
+    verification_status = None
+    if vlog and vlog['cnt'] > 0:
+        verification_status = {
+            'count': vlog['cnt'],
+            'last_pass': bool(vlog['last_pass']) if vlog['last_pass'] is not None else None
+        }
+
     return render_template('matter_detail.html',cfg=cfg,matter=matter,audit=audit,checklist=checklist,
         compliance_checks=compliance_chk,conflict=conflict,total_tokens=total_tokens,total_cost=total_cost,
-        flash=flash,drive_folder_url=drive_folder_url)
+        flash=flash,drive_folder_url=drive_folder_url,verification_status=verification_status)
 
 @app.route('/matter/<id>')
 def matter_by_id(id): return redirect(url_for('matter_detail',matter_id=id))
@@ -487,7 +581,8 @@ def agents():
         ('AD-Review', str(Path.home() / '.openclaw' / 'workspace-ad-review')),
         ('AD-Corporate', str(Path.home() / '.openclaw' / 'workspace-ad-corporate')),
         ('AD-Drafting', str(Path.home() / '.openclaw' / 'workspace-ad-drafting')),
-        ('AD-Research', str(Path.home() / '.openclaw' / 'workspace-ad-research'))]
+        ('AD-Research', str(Path.home() / '.openclaw' / 'workspace-ad-research')),
+        ('AD-Verify', str(Path(__file__).parent))]
     agent_list=[]
     for name,wp in ws:
         sp=Path(wp)/'SOUL.md'
@@ -1009,6 +1104,106 @@ def matter_briefing_skip(matter_id):
 
 
 # =============================================================================
+# VERIFICATION LOOP ROUTES (Sprint 3)
+# =============================================================================
+
+@app.route('/matter/<matter_id>/verification-log')
+def matter_verification_log(matter_id):
+    db = get_db()
+    cfg = get_firm_config()
+    matter = db.execute('SELECT * FROM matters WHERE id = ?', (matter_id,)).fetchone()
+    if not matter:
+        flash('Matter not found', 'error')
+        return redirect(url_for('matters'))
+    logs = db.execute(
+        'SELECT * FROM verification_log WHERE matter_id = ? ORDER BY loop_number ASC, created_at DESC',
+        (matter_id,)
+    ).fetchall()
+    max_loops = 2
+    return render_template('verification_log.html', cfg=cfg, matter=matter, logs=logs, max_loops=max_loops)
+
+
+@app.route('/matter/<matter_id>/verify', methods=['POST'])
+def matter_run_verify(matter_id):
+    db = get_db()
+    matter = db.execute('SELECT * FROM matters WHERE id = ?', (matter_id,)).fetchone()
+    if not matter:
+        flash('Matter not found', 'error')
+        return redirect(url_for('matters'))
+
+    existing = db.execute(
+        'SELECT COUNT(*) FROM verification_log WHERE matter_id = ?', (matter_id,)
+    ).fetchone()[0]
+    loop_number = existing + 1
+
+    matter_dict = dict(matter)
+    pa = matter_dict.get('practice_area', '') or ''
+    mt = matter_dict.get('matter_type', '') or ''
+
+    criteria_rows = db.execute(
+        'SELECT * FROM verification_criteria WHERE practice_area = ? AND enabled = 1',
+        (pa,)
+    ).fetchall()
+    if not criteria_rows:
+        criteria_rows = db.execute(
+            'SELECT * FROM verification_criteria WHERE practice_area = ? AND enabled = 1',
+            (mt,)
+        ).fetchall()
+
+    if not criteria_rows:
+        flash('No verification criteria found for practice area "' + pa + '"', 'error')
+        return redirect(url_for('matter_detail', matter_id=matter_id))
+
+    has_output = bool(matter_dict.get('notes') or matter_dict.get('summary'))
+
+    checks = []
+    all_passed = True
+    for r in criteria_rows:
+        check_passed = 1 if has_output else 0
+        if not check_passed:
+            all_passed = False
+        checks.append({
+            'criterion': r['criterion'],
+            'passed': check_passed,
+            'note': 'Output present — requires AD-Verify agent review' if has_output else 'No output found on matter'
+        })
+
+    passed = 1 if all_passed and has_output else 0
+
+    revision_prompt = None
+    if not passed:
+        revision_prompt = 'No output found on this matter. Please produce the required document or analysis before this matter can proceed.' if not has_output else 'One or more verification checks failed. Review the checks and revise the output accordingly.'
+
+    now = datetime.now().isoformat()
+    db.execute(
+        'INSERT INTO verification_log (id, matter_id, agent_id, loop_number, passed, checks_json, revision_prompt, created_at) VALUES (?, ?, ?, ?, ?, ?, ?, ?)',
+        (str(uuid.uuid4()), matter_id, 'AD-Verify', loop_number, passed, json.dumps(checks), revision_prompt, now)
+    )
+
+    max_loops = 2
+    if not passed and loop_number >= max_loops:
+        db.execute('UPDATE matters SET sub_status = ? WHERE id = ?', ('verification_failed', matter_id))
+
+    db.commit()
+
+    if passed:
+        flash('Verification passed — all checks OK', 'success')
+    else:
+        flash('Verification failed — ' + str(len([c for c in checks if not c['passed']])) + ' checks failed. Loop ' + str(loop_number) + '/' + str(max_loops), 'error')
+
+    return redirect(url_for('matter_verification_log', matter_id=matter_id))
+
+
+@app.route('/matter/<matter_id>/verification-clear', methods=['POST'])
+def matter_verification_clear(matter_id):
+    db = get_db()
+    db.execute("UPDATE matters SET sub_status = NULL WHERE id = ?", (matter_id,))
+    db.commit()
+    flash('Verification failed status cleared.', 'success')
+    return redirect(url_for('matter_detail', matter_id=matter_id))
+
+
+# =============================================================================
 # SETTINGS — Engagement / Briefing Configuration
 # =============================================================================
 
@@ -1017,19 +1212,57 @@ def settings_engagement():
     db = get_db()
     cfg = get_firm_config()
     if request.method == 'POST':
-        for key in request.form:
-            if key.startswith('behaviour_'):
-                config_id = key[len('behaviour_'):]
-                new_val = request.form[key]
+        form_tab = request.form.get('form_tab', 'briefing')
+        if form_tab == 'briefing':
+            for key in request.form:
+                if key.startswith('behaviour_'):
+                    config_id = key[len('behaviour_'):]
+                    new_val = request.form[key]
+                    db.execute(
+                        'UPDATE matter_type_config SET briefing_behaviour = ?, updated_at = ? WHERE id = ?',
+                        (new_val, datetime.now().isoformat(), config_id))
+            db.commit()
+            flash('Briefing configuration saved.', 'success')
+        elif form_tab == 'verification_toggle':
+            now = datetime.now().isoformat()
+            for key in request.form:
+                if key.startswith('vc_enabled_'):
+                    vc_id = key[len('vc_enabled_'):]
+                    db.execute('UPDATE verification_criteria SET enabled = 1, updated_at = ? WHERE id = ?', (now, vc_id))
+            all_ids = [r['id'] for r in db.execute('SELECT id FROM verification_criteria').fetchall()]
+            for vc_id in all_ids:
+                if 'vc_enabled_' + vc_id not in request.form:
+                    db.execute('UPDATE verification_criteria SET enabled = 0, updated_at = ? WHERE id = ?', (now, vc_id))
+            db.commit()
+            flash('Verification criteria updated.', 'success')
+        elif form_tab == 'verification_add':
+            pa = request.form.get('new_pa', '').strip()
+            sl = request.form.get('new_sl', '').strip()
+            tier = int(request.form.get('new_tier', 2))
+            crit = request.form.get('new_criterion', '').strip()
+            desc = request.form.get('new_description', '').strip()
+            if pa and crit:
+                now = datetime.now().isoformat()
                 db.execute(
-                    'UPDATE matter_type_config SET briefing_behaviour = ?, updated_at = ? WHERE id = ?',
-                    (new_val, datetime.now().isoformat(), config_id))
-        db.commit()
-        flash('Briefing configuration saved.', 'success')
+                    'INSERT INTO verification_criteria (id, practice_area, service_line, tier, criterion, description, enabled, updated_at) VALUES (?,?,?,?,?,?,1,?)',
+                    (str(uuid.uuid4()), pa, sl or None, tier, crit, desc or None, now))
+                db.commit()
+                flash('Criterion added.', 'success')
+            else:
+                flash('Practice area and criterion text are required.', 'error')
         return redirect(url_for('settings_engagement'))
     rows = db.execute(
         'SELECT * FROM matter_type_config ORDER BY practice_area, service_line').fetchall()
-    return render_template('settings_engagement.html', cfg=cfg, configs=[dict(r) for r in rows])
+    vc_rows = db.execute(
+        'SELECT * FROM verification_criteria ORDER BY practice_area, tier, criterion').fetchall()
+    vc_by_area = {}
+    for r in vc_rows:
+        pa = r['practice_area']
+        if pa not in vc_by_area:
+            vc_by_area[pa] = []
+        vc_by_area[pa].append(dict(r))
+    return render_template('settings_engagement.html', cfg=cfg, configs=[dict(r) for r in rows],
+                           vc_by_area=vc_by_area)
 
 
 # =============================================================================

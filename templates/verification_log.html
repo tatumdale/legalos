@@ -1,0 +1,127 @@
+{% extends "base.html" %}
+{% block title %}Verification Log — {{ matter.ref }} — AD Legal OS{% endblock %}
+{% block page_title %}Verification Log <span class="text-muted">— {{ matter.ref }}</span>{% endblock %}
+
+{% block content %}
+<div style="margin-bottom: 16px; display: flex; align-items: center; gap: 12px; flex-wrap: wrap;">
+  <a href="{{ url_for('matter_detail', matter_id=matter.id) }}" class="btn btn-sm btn-ghost">&larr; Back to Matter</a>
+  <form method="POST" action="{{ url_for('matter_run_verify', matter_id=matter.id) }}" style="margin:0;">
+    <button type="submit" class="btn btn-primary btn-sm">Run Verification</button>
+  </form>
+</div>
+
+<div class="panel" style="margin-bottom: 16px;">
+  <div class="panel-header">
+    <h2 class="panel-title">{{ matter.ref }} — {{ matter.client_name }}</h2>
+  </div>
+  <div class="panel-body">
+    <div style="display: flex; gap: 24px; flex-wrap: wrap;">
+      <div>
+        <span class="text-xs text-muted">Practice Area</span>
+        <div class="text-sm">{{ matter.practice_area or '—' }}</div>
+      </div>
+      <div>
+        <span class="text-xs text-muted">Matter Type</span>
+        <div class="text-sm">{{ matter.matter_type or '—' }}</div>
+      </div>
+      <div>
+        <span class="text-xs text-muted">Verification Runs</span>
+        <div class="text-sm mono">{{ logs|length }} / {{ max_loops }} max</div>
+      </div>
+      <div>
+        <span class="text-xs text-muted">Status</span>
+        <div>
+          {% if logs|length > 0 %}
+            {% set last_log = logs[-1] %}
+            {% if last_log.passed %}
+              <span class="status-badge status-teal">Passed</span>
+            {% else %}
+              <span class="status-badge status-crimson">Failed</span>
+            {% endif %}
+          {% else %}
+            <span class="text-sm text-muted">No runs yet</span>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+{% if logs %}
+{% for log in logs|reverse %}
+<div class="panel" style="margin-bottom: 12px;">
+  <div class="panel-header">
+    <div style="display: flex; align-items: center; gap: 10px;">
+      <span class="action-badge">Loop {{ log.loop_number }}</span>
+      {% if log.passed %}
+        <span class="status-badge status-teal">PASSED</span>
+      {% else %}
+        <span class="status-badge status-crimson">FAILED</span>
+      {% endif %}
+      <span class="mono text-xs text-muted">{{ format_datetime(log.created_at) }}</span>
+      <span class="mono text-xs text-muted">Agent: {{ log.agent_id }}</span>
+    </div>
+  </div>
+  <div class="panel-body">
+    {% set checks = [] %}
+    {% if log.checks_json %}
+      {% set checks = log.checks_json | tojson | safe %}
+    {% endif %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th style="width: 40px;">Result</th>
+          <th>Criterion</th>
+          <th>Note</th>
+        </tr>
+      </thead>
+      <tbody id="checks-{{ log.id }}">
+      </tbody>
+    </table>
+    <script>
+    (function() {
+      var checks = {{ log.checks_json | safe }};
+      var tbody = document.getElementById('checks-{{ log.id }}');
+      if (checks && checks.length) {
+        checks.forEach(function(c) {
+          var tr = document.createElement('tr');
+          tr.innerHTML = '<td>' + (c.passed ? '<span class="check-icon teal">✓</span>' : '<span class="check-icon crimson">✗</span>') + '</td>' +
+            '<td class="text-sm">' + (c.criterion || '') + '</td>' +
+            '<td class="text-sm text-muted">' + (c.note || '—') + '</td>';
+          tbody.appendChild(tr);
+        });
+      }
+    })();
+    </script>
+
+    {% if log.revision_prompt %}
+    <div style="margin-top: 12px; padding: 12px; background: rgba(231, 76, 60, 0.1); border: 1px solid rgba(231, 76, 60, 0.3); border-radius: 6px;">
+      <div style="font-size: 12px; font-weight: 600; color: #e74c3c; margin-bottom: 4px;">Revision Prompt</div>
+      <div class="text-sm">{{ log.revision_prompt }}</div>
+    </div>
+    {% endif %}
+  </div>
+</div>
+{% endfor %}
+{% else %}
+<div class="panel">
+  <div class="panel-body">
+    <div class="empty-state">
+      <p>No verification runs yet. Click "Run Verification" to start.</p>
+    </div>
+  </div>
+</div>
+{% endif %}
+
+{% if matter.sub_status == 'verification_failed' %}
+<div class="panel" style="margin-top: 16px;">
+  <div class="panel-body" style="display: flex; align-items: center; gap: 12px;">
+    <span class="status-badge status-crimson">Verification Failed</span>
+    <span class="text-sm">Max loops reached. Matter flagged for human review.</span>
+    <form method="POST" action="{{ url_for('matter_verification_clear', matter_id=matter.id) }}" style="margin: 0;">
+      <button type="submit" class="btn btn-sm btn-secondary">Clear Verification Failed</button>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

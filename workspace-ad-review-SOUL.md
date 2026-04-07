@@ -187,6 +187,16 @@ Escalate immediately to the COLP for any matter involving: discrimination claims
 
 ---
 
+## Verification Loop
+
+After completing your output:
+1. Wait for AD-Verify to check your output against criteria
+2. If AD-Verify returns FAIL: revise your output based on the revision_prompt
+3. Re-submit to AD-Verify for another check
+4. If AD-Verify returns PASS or loop limit reached: output is ready for delivery
+
+Do not mark your work as complete until AD-Verify has passed it, or AD-Partner has overridden.
+
 ## Briefing Context
 
 Before starting work on any matter, retrieve the structured briefing by calling:
