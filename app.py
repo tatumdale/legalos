@@ -1919,9 +1919,9 @@ def portal_document_action(doc_id):
                  request.remote_addr, request.headers.get('User-Agent', ''))
 
     db.execute("INSERT INTO audit_log (id, matter_id, agent_id, action_type, detail, human_override, human_reviewer, created_at) VALUES (?,?,?,?,?,0,?,?)",
-        str(uuid.uuid4()), doc['matter_id'], 'CLIENT', 'client_document_action',
-        json.dumps({"document": doc['document_name'], "action": action, "comment": comment}),
-        'system', now)
+        (str(uuid.uuid4()), doc['matter_id'], 'CLIENT', 'client_document_action',
+         json.dumps({"document": doc['document_name'], "action": action, "comment": comment}),
+         'system', now))
 
     db.commit()
     flash(f"Document {action} successfully.", "success")
@@ -1953,8 +1953,8 @@ def portal_share_document(matter_id):
         (doc_id, matter_id, document_name, document_url, document_type, 'fee_earner', now, action_req))
 
     db.execute("INSERT INTO audit_log (id, matter_id, agent_id, action_type, detail, human_override, human_reviewer, created_at) VALUES (?,?,?,?,?,0,?,?)",
-        str(uuid.uuid4()), matter_id, 'fee_earner', 'portal_document_shared',
-        json.dumps({"document": document_name, "url": document_url}), 'system', now)
+        (str(uuid.uuid4()), matter_id, 'fee_earner', 'portal_document_shared',
+         json.dumps({"document": document_name, "url": document_url}), 'system', now))
 
     db.commit()
     flash("Document shared with client.", "success")
@@ -2017,8 +2017,8 @@ def portal_send_login(matter_id):
          json.dumps([matter_id]), now, expires))
 
     db.execute("INSERT INTO audit_log (id, matter_id, agent_id, action_type, detail, human_override, human_reviewer, created_at) VALUES (?,?,?,?,?,0,?,?)",
-        str(uuid.uuid4()), matter_id, 'fee_earner', 'portal_token_created',
-        json.dumps({"client_email": matter['client_email']}), 'system', now)
+        (str(uuid.uuid4()), matter_id, 'fee_earner', 'portal_token_created',
+         json.dumps({"client_email": matter['client_email']}), 'system', now))
     db.commit()
 
     flash(f"Portal link generated for {matter['client_email']}. Manage portal access to get the link.", "success")
