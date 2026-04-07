@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}New Matter — Acme Dale Legal Services Legal OS{% endblock %}
+{% block page_title %}Client Intake{% endblock %}
+
+{% block content %}
+<div style="max-width: 680px;">
+  <div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">New Matter Enquiry</h2>
+      <span class="text-xs text-muted">All fields marked * are required</span>
+    </div>
+    <div class="panel-body">
+      {% if error %}
+      <div class="flash flash-error" style="margin-bottom: 16px;">{{ error }}</div>
+      {% endif %}
+
+      <form method="POST" action="{{ url_for('client_intake') }}">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">Full Name *</label>
+            <input type="text" name="name" class="form-input" required placeholder="e.g. Sarah Mitchell">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address *</label>
+            <input type="email" name="email" class="form-input" required placeholder="e.g. sarah@example.co.uk">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Phone Number</label>
+            <input type="tel" name="phone" class="form-input" placeholder="e.g. 07700 900123">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Company Name</label>
+            <input type="text" name="company" class="form-input" placeholder="e.g. TechStart Ltd">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Matter Type *</label>
+            <select name="matter_type" class="form-select" required>
+              <option value="">Select…</option>
+              <option value="Corporate">Corporate</option>
+              <option value="Employment">Employment</option>
+              <option value="Commercial">Commercial</option>
+              <option value="IP">Intellectual Property</option>
+              <option value="Data Privacy">Data Privacy</option>
+              <option value="Other">Other</option>
+            </select>
+          </div>
+          <div class="form-group">
+            <label class="form-label">Preferred Contact Method</label>
+            <select name="contact_method" class="form-select">
+              <option value="email">Email</option>
+              <option value="phone">Phone</option>
+              <option value="either">Either</option>
+            </select>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Description of Your Matter *</label>
+            <textarea name="description" class="form-textarea" required placeholder="Please describe your legal matter in as much detail as possible…" style="min-height: 120px;"></textarea>
+          </div>
+          <div class="form-group full">
+            <label class="form-label">How Did You Hear About Us?</label>
+            <input type="text" name="referral_source" class="form-input" placeholder="e.g. Google, referral, LinkedIn">
+          </div>
+          <div class="form-group full">
+            <label style="display: flex; align-items: center; gap: 8px; cursor: pointer; font-size: 12px; color: var(--text-secondary);">
+              <input type="checkbox" name="consent" required>
+              I consent to Acme Dale Legal Services Solicitors contacting me about my enquiry. I have read and agree to the <a href="{{ cfg.website_url }}" target="_blank" style="color: var(--teal);">privacy policy</a>.
+            </label>
+          </div>
+          <div class="form-group full">
+            <button type="submit" class="btn btn-primary btn-block">Submit Enquiry</button>
+          </div>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top: 16px;">
+    <div class="panel-body">
+      <div class="ai-disclosure">
+        <p>{{ cfg.firm_name }} is authorised and regulated by the Solicitors Regulation Authority (SRA No: {{ cfg.sra_number }}).</p>
+        <p>Your enquiry will be reviewed by a qualified solicitor. Our AI legal technology assists with initial matter classification, but all legal advice is provided by qualified professionals.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

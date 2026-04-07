@@ -1,0 +1,100 @@
+{% extends "base.html" %}
+{% block title %}New Product — CRM{% endblock %}
+{% block page_title %}New Product{% endblock %}
+
+{% block content %}
+<div class="panel" style="max-width:640px;">
+  <div class="panel-header"><span class="panel-title">Add Product</span></div>
+  <div class="panel-body">
+    <div class="form-grid">
+      <div class="form-group full">
+        <label class="form-label">Product Name *</label>
+        <input type="text" id="name" class="form-input" required>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">Description</label>
+        <textarea id="description" class="form-textarea" rows="3"></textarea>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Category</label>
+        <select id="category" class="form-select">
+          <option value="automated">Automated</option>
+          <option value="human">Human</option>
+          <option value="hybrid">Hybrid</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Delivery Type</label>
+        <select id="delivery_type" class="form-select">
+          <option value="per_transaction">Per Transaction</option>
+          <option value="subscription">Subscription</option>
+          <option value="tiered">Tiered</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Tier Name</label>
+        <input type="text" id="tier_name" class="form-input" placeholder="e.g. Starter, Professional">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Monthly Price (pence)</label>
+        <input type="number" id="tier_price_monthly" class="form-input" value="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Per-Transaction Price (pence)</label>
+        <input type="number" id="tier_price_transaction" class="form-input" value="0">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Usage Limit / Month</label>
+        <input type="number" id="usage_limit_per_month" class="form-input" value="0" placeholder="0 = unlimited">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Automation Ratio (%)</label>
+        <input type="number" id="automation_ratio" class="form-input" value="100" min="0" max="100">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Practice Area</label>
+        <input type="text" id="practice_area" class="form-input" placeholder="e.g. commercial_law">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select id="status" class="form-select">
+          <option value="active">Active</option>
+          <option value="draft">Draft</option>
+          <option value="archived">Archived</option>
+        </select>
+      </div>
+    </div>
+    <div style="margin-top:16px; display:flex; gap:8px; justify-content:flex-end;">
+      <a href="{{ url_for('crm_products') }}" class="btn btn-secondary btn-sm">Cancel</a>
+      <button class="btn btn-primary btn-sm" onclick="submitProduct()">Create Product</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function submitProduct() {
+  var data = {
+    name: document.getElementById('name').value,
+    description: document.getElementById('description').value,
+    category: document.getElementById('category').value,
+    delivery_type: document.getElementById('delivery_type').value,
+    tier_name: document.getElementById('tier_name').value,
+    tier_price_monthly: parseInt(document.getElementById('tier_price_monthly').value) || 0,
+    tier_price_transaction: parseInt(document.getElementById('tier_price_transaction').value) || 0,
+    usage_limit_per_month: parseInt(document.getElementById('usage_limit_per_month').value) || 0,
+    automation_ratio: parseInt(document.getElementById('automation_ratio').value) || 100,
+    practice_area: document.getElementById('practice_area').value,
+    status: document.getElementById('status').value
+  };
+  if (!data.name) { alert('Product name is required'); return; }
+  fetch('/crm/products/new', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  }).then(function(r) { return r.json(); })
+    .then(function() { window.location.href = '/crm/products'; });
+}
+</script>
+{% endblock %}

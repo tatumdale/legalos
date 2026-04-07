@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Audit Log — Acme Dale Legal Services Legal OS{% endblock %}
+{% block page_title %}Audit Log{% endblock %}
+
+{% block content %}
+<div class="page-toolbar">
+  <form method="GET" class="filters">
+    <select name="agent" class="filter-select">
+      <option value="">All agents</option>
+      {% for a in agents %}<option value="{{ a }}" {% if filter_agent == a %}selected{% endif %}>{{ a }}</option>{% endfor %}
+    </select>
+    <select name="action_type" class="filter-select">
+      <option value="">All actions</option>
+      {% for at in action_types %}<option value="{{ at }}" {% if filter_action == at %}selected{% endif %}>{{ at }}</option>{% endfor %}
+    </select>
+    <button type="submit" class="btn btn-sm">Filter</button>
+    <a href="{{ url_for('audit') }}" class="btn btn-sm btn-ghost">Clear</a>
+    <a href="{{ url_for('audit_export') }}" class="btn btn-sm btn-secondary" style="margin-left:auto">↓ Export CSV</a>
+  </form>
+</div>
+
+<div class="panel">
+  <div class="panel-body no-padding">
+    {% if entries %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Time</th>
+          <th>Ref</th>
+          <th>Client</th>
+          <th>Agent</th>
+          <th>Action</th>
+          <th>Detail</th>
+          <th>Tokens</th>
+          <th>Cost USD</th>
+          <th>Model</th>
+          <th>Confidence</th>
+          <th>Human</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for e in entries %}
+        <tr>
+          <td class="mono text-xs">{{ format_datetime(e.created_at) }}</td>
+          <td class="mono teal-text text-sm">{% if e.ref %}<a href="{{ url_for('matter_detail', matter_id=e.matter_id) }}">{{ e.ref }}</a>{% else %}—{% endif %}</td>
+          <td class="text-sm">{{ e.client_name or '—' }}</td>
+          <td class="mono text-sm teal-text">{{ e.agent_id }}</td>
+          <td><span class="action-badge">{{ e.action_type }}</span></td>
+          <td class="text-sm text-muted" style="max-width:200px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">{{ e.detail or '—' }}</td>
+          <td class="mono text-xs">{{ e.tokens_used or 0 }}</td>
+          <td class="mono text-xs amber-text">£{{ "%.4f"|format(e.cost_usd or 0) }}</td>
+          <td class="mono text-xs text-muted">{{ e.model_used or '—' }}</td>
+          <td class="mono text-xs">{% if e.confidence_score %}{{ (e.confidence_score * 100)|int }}%{% else %}—{% endif %}</td>
+          <td>{% if e.human_override %}<span class="check-icon teal">✓</span>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>No audit entries found.</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

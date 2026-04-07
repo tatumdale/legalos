@@ -1,0 +1,101 @@
+{% extends "base.html" %}
+{% block title %}AI Agents — Acme Dale Legal Services Legal OS{% endblock %}
+{% block page_title %}AI Fee Earners{% endblock %}
+
+{% block content %}
+<div class="page-toolbar">
+  <div class="text-muted text-sm">
+    <span class="teal-text">{{ agents|length }}</span> agents configured — each represents an AI Fee Earner role
+  </div>
+  <a href="{{ url_for('settings', tab='soul') }}" class="btn btn-sm btn-secondary">✎ Edit SOUL.md Files</a>
+</div>
+
+<div class="agents-grid">
+  {% for agent in agents %}
+  <div class="agent-card">
+    <div class="agent-card-header">
+      <div class="agent-icon">🤖</div>
+      <div>
+        <div class="agent-name">{{ agent.name }}</div>
+        <div class="agent-meta">
+          <span class="status-dot {% if agent.active_tasks > 0 %}teal{% else %}muted{% endif %}"></span>
+          <span class="text-xs text-muted">{{ agent.active_tasks }} active task{% if agent.active_tasks != 1 %}s{% endif %}</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="agent-stats">
+      <div class="agent-stat">
+        <div class="agent-stat-value mono">{{ agent.word_count }}</div>
+        <div class="agent-stat-label">SOUL.md words</div>
+      </div>
+      <div class="agent-stat">
+        <div class="agent-stat-value mono">{{ agent.last_active }}</div>
+        <div class="agent-stat-label">Last active</div>
+      </div>
+    </div>
+
+    <div class="agent-path">
+      <span class="text-xs text-muted mono">{{ agent.soul_path }}</span>
+    </div>
+
+    <div class="agent-soul-preview">
+      <div class="text-xs text-muted mb-4">SOUL.md excerpt:</div>
+      <pre class="soul-excerpt">{{ agent.soul[:400] }}{% if agent.soul|length > 400 %}...{% endif %}</pre>
+    </div>
+  </div>
+  {% endfor %}
+</div>
+
+<div class="panel mt-16">
+  <div class="panel-header">
+    <h2 class="panel-title">What Each Agent Does</h2>
+  </div>
+  <div class="panel-body">
+    <div class="agent-info-grid">
+      <div class="agent-info-item">
+        <div class="agent-info-name">🤖 AD-Intake</div>
+        <div class="agent-info-desc">
+          First point of contact. Receives emails, runs conflict checks, classifies matters
+          by Practice Area and Matter Type with confidence scoring, generates SRA-compliant
+          client care letters, notifies AD-Review for approval.
+        </div>
+        <div class="agent-info-tags">
+          <span class="tag">Email</span>
+          <span class="tag">Conflict Check</span>
+          <span class="tag">Classification</span>
+          <span class="tag">Client Care Letter</span>
+        </div>
+      </div>
+      <div class="agent-info-item">
+        <div class="agent-info-name">🔍 AD-Review</div>
+        <div class="agent-info-desc">
+          Quality control gate. Reviews AD-Intake classifications and outputs for accuracy,
+          tone, SRA compliance, and risk. Approves or rejects with notes. Escalates complex
+          matters to human partner review.
+        </div>
+        <div class="agent-info-tags">
+          <span class="tag">QC</span>
+          <span class="tag">Approval</span>
+          <span class="tag">SRA Compliance</span>
+          <span class="tag">Escalation</span>
+        </div>
+      </div>
+      <div class="agent-info-item">
+        <div class="agent-info-name">⚙️ AD-Corporate</div>
+        <div class="agent-info-desc">
+          Practice area orchestrator for Corporate matters. Manages sub-agents for M&A,
+          Company Formation, Shareholders, and other Corporate work. Owns the Corporate
+          Judgement.md for learning and precedent tracking.
+        </div>
+        <div class="agent-info-tags">
+          <span class="tag">Orchestrator</span>
+          <span class="tag">Corporate</span>
+          <span class="tag">Sub-agents</span>
+          <span class="tag">Judgement</span>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

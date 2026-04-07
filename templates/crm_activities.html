@@ -1,0 +1,32 @@
+{% extends "base.html" %}
+{% block title %}Activity Log — CRM{% endblock %}
+{% block page_title %}Activity Log{% endblock %}
+
+{% block content %}
+<div class="panel">
+  <div class="panel-body no-padding">
+    {% if activities %}
+    <table class="data-table">
+      <thead>
+        <tr><th>Date</th><th>Type</th><th>Contact</th><th>Company</th><th>Subject</th><th>Agent</th><th>SRA</th></tr>
+      </thead>
+      <tbody>
+      {% for a in activities %}
+      <tr>
+        <td class="mono text-sm">{{ format_datetime(a.activity_date) }}</td>
+        <td><span class="activity-action activity-type-{{ a.activity_type }}">{{ a.activity_type }}</span></td>
+        <td>{{ a.contact_name or '—' }}</td>
+        <td>{{ a.company_name or '—' }}</td>
+        <td>{{ a.subject or '—' }}</td>
+        <td class="mono text-sm">{{ a.created_by_agent or '—' }}</td>
+        <td>{% if a.sra_logged %}<span class="check-icon teal">✓</span>{% else %}<span class="check-icon" style="color:var(--text-muted);">—</span>{% endif %}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>No activities recorded yet</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,51 @@
+{% extends "base.html" %}
+{% block title %}Products — CRM{% endblock %}
+{% block page_title %}Products{% endblock %}
+
+{% block content %}
+<div class="page-toolbar">
+  <div></div>
+  <a href="{{ url_for('crm_new_product') }}" class="btn btn-primary">+ Add Product</a>
+</div>
+
+<div class="panel">
+  <div class="panel-body no-padding">
+    {% if products %}
+    <table class="data-table">
+      <thead>
+        <tr><th>Name</th><th>Category</th><th>Delivery</th><th>Monthly</th><th>Per Txn</th><th>Usage Limit</th><th>Automation</th><th>Status</th></tr>
+      </thead>
+      <tbody>
+      {% for p in products %}
+      <tr>
+        <td style="font-weight:600;">{{ p.name }}</td>
+        <td>
+          {% if p.category == 'automated' %}<span class="status-badge status-teal">Automated</span>
+          {% elif p.category == 'human' %}<span class="status-badge status-amber">Human</span>
+          {% elif p.category == 'hybrid' %}<span class="status-badge status-blue">Hybrid</span>
+          {% else %}<span class="action-badge">{{ p.category }}</span>{% endif %}
+        </td>
+        <td>
+          {% if p.delivery_type == 'subscription' %}<span class="action-badge" style="border-color:rgba(139,92,246,0.3); color:#a78bfa;">Subscription</span>
+          {% elif p.delivery_type == 'per_transaction' %}<span class="action-badge" style="border-color:rgba(0,212,170,0.3); color:var(--teal);">Per Transaction</span>
+          {% elif p.delivery_type == 'tiered' %}<span class="action-badge" style="border-color:rgba(59,130,246,0.3); color:var(--blue);">Tiered</span>
+          {% else %}<span class="action-badge">{{ p.delivery_type }}</span>{% endif %}
+        </td>
+        <td class="mono">{{ format_currency(p.tier_price_monthly / 100) }}</td>
+        <td class="mono">{{ format_currency(p.tier_price_transaction / 100) }}</td>
+        <td class="mono">{{ p.usage_limit_per_month or '∞' }}</td>
+        <td class="mono">{{ p.automation_ratio }}%</td>
+        <td>
+          {% if p.status == 'active' %}<span class="status-badge status-teal">Active</span>
+          {% else %}<span class="status-badge status-muted">{{ p.status }}</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>No products defined yet</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

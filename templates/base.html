@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}Acme Dale Legal Services Legal OS{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+{% block head %}{% endblock %}
+</head>
+<body>
+
+<!-- Sidebar -->
+<aside class="sidebar">
+  <div class="sidebar-header">
+    <div class="firm-logo">⚖️</div>
+    <div class="firm-name">
+      <span class="firm-name-main">{{ cfg.firm_name }}</span>
+      <span class="firm-sub">Legal OS</span>
+    </div>
+  </div>
+
+  <nav class="sidebar-nav">
+    <div class="nav-section">
+      <span class="nav-label">MATTER MANAGEMENT</span>
+      <a href="{{ url_for('dashboard') }}" class="nav-item {% if request.endpoint == 'dashboard' %}active{% endif %}">
+        <span class="nav-icon">◉</span> Dashboard
+      </a>
+      <a href="{{ url_for('matters') }}" class="nav-item {% if request.endpoint == 'matters' %}active{% endif %}">
+        <span class="nav-icon">📋</span> Matters
+      </a>
+
+      <a href="{{ url_for('audit') }}" class="nav-item {% if request.endpoint == 'audit' %}active{% endif %}">
+        <span class="nav-icon">📊</span> Audit Log
+      </a>
+      <a href="{{ url_for('matters_gdrive') }}" class="nav-item {% if request.endpoint == 'matters_gdrive' %}active{% endif %}">
+        <span class="nav-icon">📁</span> Drive Documents
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <span class="nav-label">AI OPERATIONS</span>
+      <a href="{{ url_for('agents') }}" class="nav-item {% if request.endpoint == 'agents' %}active{% endif %}">
+        <span class="nav-icon">🤖</span> AI Agents
+      </a>
+      <a href="{{ url_for('skills') }}" class="nav-item {% if 'skill' in request.endpoint %}active{% endif %}">
+        <span class="nav-icon">◈</span> Legal Skills
+      </a>
+    </div>
+
+        <div class="nav-section">
+      <span class="nav-label">CLIENT</span>
+      <a href="{{ url_for('compliance') }}" class="nav-item {% if request.endpoint == 'compliance' %}active{% endif %}">
+        <span class="nav-icon">📝</span> Compliance
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <span class="nav-label">CRM</span>
+      <a href="{{ url_for('crm_dashboard') }}" class="nav-item {% if request.endpoint and 'crm' in request.endpoint %}active{% endif %}">
+        <span class="nav-icon">💼</span> CRM Dashboard
+      </a>
+      <a href="{{ url_for('crm_contacts') }}" class="nav-item {% if request.endpoint and 'contact' in request.endpoint %}active{% endif %}">
+        <span class="nav-icon">👤</span> Contacts
+      </a>
+      <a href="{{ url_for('crm_companies') }}" class="nav-item {% if request.endpoint and 'company' in request.endpoint %}active{% endif %}">
+        <span class="nav-icon">🏢</span> Companies
+      </a>
+      <a href="{{ url_for('crm_pipeline') }}" class="nav-item {% if request.endpoint == 'crm_pipeline' %}active{% endif %}">
+        <span class="nav-icon">📈</span> Pipeline
+      </a>
+      <a href="{{ url_for('crm_products') }}" class="nav-item {% if request.endpoint == 'crm_products' %}active{% endif %}">
+        <span class="nav-icon">📦</span> Products
+      </a>
+      <a href="{{ url_for('crm_activities') }}" class="nav-item {% if request.endpoint == 'crm_activities' %}active{% endif %}">
+        <span class="nav-icon">⚡</span> Activities
+      </a>
+    </div>
+
+    <div class="nav-section">
+      <span class="nav-label">COMPLIANCE</span>
+      <a href="{{ url_for('compliance') }}" class="nav-item {% if request.endpoint == 'compliance' %}active{% endif %}">
+        <span class="nav-icon">🛡️</span> SRA Compliance
+      </a>
+      <a href="{{ url_for('settings', tab='firm') }}" class="nav-item {% if 'settings' in request.endpoint and tab == 'firm' %}active{% endif %}">
+        <span class="nav-icon">⚙️</span> Settings
+      </a>
+    </div>
+    <div class="nav-section">
+      <span class="nav-label">CLIENT INTAKE</span>
+      <a href="{{ url_for('intake') }}" class="nav-item {% if request.endpoint == 'intake' %}active{% endif %}">
+        <span class="nav-icon">📝</span> New Enquiry
+      </a>
+      <a href="{{ url_for('precedents') }}" class="nav-item {% if request.endpoint == 'precedents' %}active{% endif %}">
+        <span class="nav-icon">📚</span> Precedents
+      </a>
+    </div>
+
+  </nav>
+
+  <div class="sidebar-footer">
+    <div class="gateway-status">
+      <span class="status-dot status-teal"></span>
+      <span class="status-text">System Active</span>
+    </div>
+    <div class="sra-badge">
+      <span>SRA Reg: {{ cfg.sra_number }}</span>
+    </div>
+  </div>
+</aside>
+
+<!-- Main content -->
+<div class="main-wrapper">
+  <!-- Topbar -->
+  <header class="topbar">
+    <div class="topbar-left">
+      <h1 class="page-title">{% block page_title %}Dashboard{% endblock %}</h1>
+    </div>
+    <div class="topbar-right">
+      <div class="topbar-stat">
+        <span class="topbar-stat-label">Token Cost Today</span>
+        <span class="topbar-stat-value">£{{ "%.2f"|format(cost_today or 0) }}</span>
+      </div>
+      <div class="topbar-divider"></div>
+      <div class="topbar-stat">
+        <span class="topbar-stat-label">Active Matters</span>
+        <span class="topbar-stat-value">{{ open_count or 0 }}</span>
+      </div>
+      <div class="topbar-divider"></div>
+      <div class="topbar-stat">
+        <span class="topbar-stat-label">Pending Review</span>
+        <span class="topbar-stat-value amber">{{ review_count or 0 }}</span>
+      </div>
+      {% block topbar_extra %}{% endblock %}
+    </div>
+  </header>
+
+  <!-- Flash messages -->
+  {% with messages = get_flashed_messages(with_categories=true) %}
+  {% if messages %}
+  <div class="flash-container">
+    {% for category, message in messages %}
+    <div class="flash flash-{{ category }}">{{ message }}</div>
+    {% endfor %}
+  </div>
+  {% endif %}
+  {% endwith %}
+
+  <!-- Page content -->
+  <main class="content">
+    {% block content %}{% endblock %}
+  </main>
+</div>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

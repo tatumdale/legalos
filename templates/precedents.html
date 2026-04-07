@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Precedent Library — HJ Legal OS{% endblock %}
+{% block page_title %}Precedent Library{% endblock %}
+
+{% block content %}
+<div class="page-toolbar">
+  <form class="filters" method="GET" action="{{ url_for('precedents') }}">
+    <input type="text" name="q" class="form-input" placeholder="Search precedents…" value="{{ search }}" style="min-width: 240px;">
+    <select name="practice_area" class="filter-select">
+      <option value="">All Practice Areas</option>
+      {% for pa in practice_areas %}
+      <option value="{{ pa }}" {% if pa == pa_filter %}selected{% endif %}>{{ pa }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+    {% if search or pa_filter %}
+    <a href="{{ url_for('precedents') }}" class="btn btn-ghost btn-sm">Clear</a>
+    {% endif %}
+  </form>
+</div>
+
+<div class="panel">
+  <div class="panel-header">
+    <h2 class="panel-title">Precedents</h2>
+    <span class="text-xs text-muted">{{ precedents|length }} result{{ 's' if precedents|length != 1 }}</span>
+  </div>
+  <div class="panel-body no-padding">
+    {% if precedents %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Ref</th>
+          <th>Client</th>
+          <th>Practice Area</th>
+          <th>Type</th>
+          <th>Summary</th>
+          <th>Outcome</th>
+          <th>Completed</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in precedents %}
+        <tr class="clickable-row" data-href="{{ url_for('precedent_detail', matter_id=p.matter_id) }}">
+          <td class="mono text-sm">{{ p.ref or '—' }}</td>
+          <td class="text-sm">{{ p.client_name or '—' }}</td>
+          <td>{{ p.practice_area or '—' }}</td>
+          <td>{{ p.matter_type or '—' }}</td>
+          <td class="text-sm">{{ (p.summary or '')[:80] }}{% if p.summary and p.summary|length > 80 %}…{% endif %}</td>
+          <td class="text-sm">{{ (p.outcome or '')[:50] }}{% if p.outcome and p.outcome|length > 50 %}…{% endif %}</td>
+          <td class="mono text-xs">{{ p.completed_at[:10] if p.completed_at else '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <p>No precedents found{% if search %} matching "{{ search }}"{% endif %}. Complete matters and mark them as precedents to build the library.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.clickable-row').forEach(row => {
+  row.style.cursor = 'pointer';
+  row.addEventListener('click', () => window.location = row.dataset.href);
+});
+</script>
+{% endblock %}

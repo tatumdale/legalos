@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}{{ matter.ref }} — Drive Documents — HJ Legal OS{% endblock %}
+{% block page_title %}{{ matter.ref }} <span class="text-muted">— Drive Documents</span>{% endblock %}
+
+{% block content %}
+<div class="matter-layout">
+  <div class="matter-main" style="max-width:960px;">
+
+    <!-- Header -->
+    <div class="matter-header-card">
+      <div class="mh-row">
+        <div>
+          <div class="mh-client">{{ matter.client_name }}</div>
+          <div class="mh-email text-muted">{{ matter.client_email }}</div>
+        </div>
+        <div class="mh-right">
+          <a href="{{ url_for('matter_detail', matter_id=matter.id) }}" class="btn btn-sm btn-secondary">← Back to Matter</a>
+          <a href="{{ drive_folder_url }}" class="btn btn-sm btn-primary" target="_blank" rel="noopener">📂 Open in Drive</a>
+        </div>
+      </div>
+      <div class="mh-row mt-16">
+        <div class="mh-field">
+          <div class="mh-field-label">Matter Ref</div>
+          <div class="mh-field-value mono">{{ matter.ref }}</div>
+        </div>
+        <div class="mh-field">
+          <div class="mh-field-label">Matter Type</div>
+          <div class="mh-field-value">{{ matter.matter_type }}</div>
+        </div>
+        <div class="mh-field">
+          <div class="mh-field-label">Phase</div>
+          <div class="mh-field-value">{{ PHASE_LABELS.get(matter.phase, matter.phase) }}</div>
+        </div>
+        <div class="mh-field">
+          <div class="mh-field-label">Drive Folder</div>
+          <div class="mh-field-value">
+            {% if drive_folder_url %}
+              <a href="{{ drive_folder_url }}" target="_blank" rel="noopener" class="mono">{{ drive_folder_url }}</a>
+            {% else %}
+              <span class="text-muted">Not connected</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Documents Panel -->
+    <div class="panel" id="drive-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Documents</h2>
+        <span class="action-badge" id="doc-count">Loading…</span>
+      </div>
+      <div class="panel-body no-padding">
+        <div id="gdrive-alert" class="flash flash-info" style="display:none;margin:12px;"></div>
+
+        <div id="gdrive-loading" style="padding:32px;text-align:center;color:var(--text-muted);">
+          <p>Loading documents from Google Drive…</p>
+        </div>
+
+        <div id="gdrive-empty" style="display:none;padding:32px;text-align:center;color:var(--text-muted);">
+          <p>📂 No documents found in this Drive folder.</p>
+          <p style="font-size:12px;">Files uploaded through the Legal OS will appear here automatically.</p>
+          <a href="{{ drive_folder_url }}" class="btn btn-secondary btn-sm mt-8" target="_blank" rel="noopener">Open Drive Folder</a>
+        </div>
+
+        <table class="data-table" id="gdrive-doc-table" style="display:none;">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th style="width:80px;">Type</th>
+              <th style="width:100px;">Source</th>
+              <th style="width:80px;">Size</th>
+              <th style="width:140px;">Date Added</th>
+              <th style="width:100px;">Actions</th>
+            </tr>
+          </thead>
+          <tbody id="gdrive-doc-tbody"></tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<script>
+const matterId = {{ matter.id|tojson }};
+const driveFolderUrl = {{ drive_folder_url|tojson }};
+
+function formatDate(isoStr) {
+  if (!isoStr) return '—';
+  const d = new Date(isoStr);
+  if (isNaN(d)) return '—';
+  return d.toLocaleDateString('en-GB', { day: '2-digit', month: 'short', year: 'numeric' });
+}
+
+function sourceClass(source) {
+  const map = {
+    'Contract': 'action-green',
+    'Correspondence': 'action-blue',
+    'Draft': 'action-amber',
+    'Invoice': 'action-purple',
+    'Email': 'action-blue',
+    'Note': 'action-muted',
+    'Intake': 'action-teal',
+    'Upload': 'action-muted',
+  };
+  return map[source] || 'action-muted';
+}
+
+async function loadDocuments() {
+  const loading = document.getElementById('gdrive-loading');
+  const empty = document.getElementById('gdrive-empty');
+  const table = document.getElementById('gdrive-doc-table');
+  const tbody = document.getElementById('gdrive-doc-tbody');
+  const count = document.getElementById('doc-count');
+
+  try {
+    const r = await fetch(`/api/matters/${matterId}/gdrive`);
+    const data = await r.json();
+
+    loading.style.display = 'none';
+
+    if (!data.documents || data.documents.length === 0) {
+      empty.style.display = 'block';
+      count.textContent = '0 files';
+      return;
+    }
+
+    count.textContent = data.documents.length + ' file' + (data.documents.length !== 1 ? 's' : '');
+    empty.style.display = 'none';
+    table.style.display = 'table';
+
+    tbody.innerHTML = '';
+    data.documents.forEach(doc => {
+      const row = document.createElement('tr');
+
+      const openLink = doc.web_view_link
+        ? `<a href="${doc.web_view_link}" class="btn btn-sm btn-secondary" target="_blank" rel="noopener">Open</a>`
+        : '<span class="text-muted">—</span>';
+
+      const downloadLink = doc.web_view_link
+        ? `<a href="${doc.web_view_link.replace('/view?', '/download?')}" class="btn btn-sm btn-muted" target="_blank" rel="noopener" style="margin-left:4px;">↓</a>`
+        : '';
+
+      row.innerHTML = `
+        <td>
+          <div style="font-weight:500;">${doc.name}</div>
+        </td>
+        <td><span class="action-badge action-muted">${doc.type}</span></td>
+        <td><span class="action-badge ${sourceClass(doc.source)}">${doc.source}</span></td>
+        <td class="mono text-sm">${doc.size}</td>
+        <td class="mono text-xs">${formatDate(doc.created_time || doc.modified_time)}</td>
+        <td>${openLink}${downloadLink}</td>
+      `;
+      tbody.appendChild(row);
+    });
+  } catch (err) {
+    loading.style.display = 'none';
+    const alert = document.getElementById('gdrive-alert');
+    alert.textContent = 'Failed to load Drive documents. ' + err.message;
+    alert.className = 'flash flash-error';
+    alert.style.display = 'block';
+    count.textContent = 'Error';
+  }
+}
+
+loadDocuments();
+</script>
+{% endblock %}

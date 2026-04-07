@@ -1,0 +1,57 @@
+{% extends "base.html" %}
+{% block title %}Pipeline — CRM{% endblock %}
+{% block page_title %}Pipeline{% endblock %}
+
+{% block content %}
+<div class="pipeline-board">
+  {% for stage in stages %}
+  <div class="pipeline-col {% if stage == 'converted' %}pipeline-converted{% elif stage == 'lost' %}pipeline-lost{% endif %}"
+       ondragover="event.preventDefault(); this.style.borderColor='var(--teal)'"
+       ondragleave="this.style.borderColor=''"
+       ondrop="dropCard(event, '{{ stage }}'); this.style.borderColor=''">
+    <div class="pipeline-col-header">
+      <span class="stage-{{ stage }}" style="text-transform:capitalize;">{{ stage }}</span>
+      <span class="status-badge status-muted">{{ pipeline_by_stage[stage]|length }}</span>
+    </div>
+    {% set total_weighted = namespace(val=0) %}
+    {% for card in pipeline_by_stage[stage] %}
+      {% set total_weighted.val = total_weighted.val + (card.estimated_value * card.conversion_probability / 100)|int %}
+    {% endfor %}
+    {% if total_weighted.val > 0 %}
+    <div style="font-size:11px; color:var(--teal); font-family:var(--font-mono); margin-bottom:8px;">
+      {{ format_currency(total_weighted.val / 100) }} weighted
+    </div>
+    {% endif %}
+    {% for card in pipeline_by_stage[stage] %}
+    <div class="pipeline-card" draggable="true" ondragstart="event.dataTransfer.setData('text/plain', '{{ card.id }}')">
+      <div class="pipeline-card-company">{{ card.company_name or '—' }}</div>
+      <div class="pipeline-card-meta">
+        {{ card.contact_name or '' }}{% if card.product_name %} · {{ card.product_name }}{% endif %}
+      </div>
+      <div class="pipeline-card-value">
+        {{ format_currency(card.estimated_value / 100) }} · {{ card.conversion_probability }}%
+      </div>
+    </div>
+    {% endfor %}
+    {% if not pipeline_by_stage[stage] %}
+    <div style="padding:20px 8px; text-align:center; font-size:12px; color:var(--text-muted);">No deals</div>
+    {% endif %}
+  </div>
+  {% endfor %}
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function dropCard(event, newStage) {
+  event.preventDefault();
+  var pipelineId = event.dataTransfer.getData('text/plain');
+  fetch('/api/crm/pipeline/' + pipelineId + '/stage', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({stage: newStage})
+  }).then(function(r) { return r.json(); })
+    .then(function() { window.location.reload(); });
+}
+</script>
+{% endblock %}

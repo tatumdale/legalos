@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}CRM Dashboard — {{ cfg.firm_name }}{% endblock %}
+{% block page_title %}CRM Dashboard{% endblock %}
+
+{% block content %}
+<div class="metrics-grid cols-4" style="grid-template-columns: repeat(3, 1fr); margin-bottom: 20px;">
+  <div class="metric-card">
+    <div class="metric-icon teal">💷</div>
+    <div>
+      <div class="metric-value">{{ format_currency(total_mrr / 100) }}</div>
+      <div class="metric-label">Monthly Recurring Revenue</div>
+    </div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-icon blue">📈</div>
+    <div>
+      <div class="metric-value" style="font-size:18px;">{{ format_currency(total_arr / 100) }}</div>
+      <div class="metric-label">Annual Recurring Revenue</div>
+    </div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-icon amber">🏢</div>
+    <div>
+      <div class="metric-value">{{ active_clients }}</div>
+      <div class="metric-label">Active Clients</div>
+    </div>
+  </div>
+</div>
+
+<div class="dashboard-grid two-col">
+  <!-- Pipeline by Stage -->
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Pipeline by Stage</span>
+      <a href="{{ url_for('crm_pipeline') }}" class="panel-action">View all →</a>
+    </div>
+    <div class="panel-body">
+      {% set max_weighted = namespace(val=1) %}
+      {% for s, data in pipeline_by_stage.items() %}
+        {% if data.weighted > max_weighted.val %}{% set max_weighted.val = data.weighted %}{% endif %}
+      {% endfor %}
+      {% for s, data in pipeline_by_stage.items() %}
+      <div style="display:flex; align-items:center; gap:12px; margin-bottom:10px;">
+        <span class="stage-{{ s }}" style="min-width:100px; font-size:12px; font-weight:600; text-transform:capitalize;">{{ s }}</span>
+        <div style="flex:1; height:24px; background:rgba(255,255,255,0.04); border-radius:4px; overflow:hidden;">
+          <div style="height:100%; width:{{ (data.weighted / max_weighted.val * 100) if max_weighted.val > 0 else 0 }}%; background: var(--teal-dim); border-radius:4px; display:flex; align-items:center; padding-left:8px;">
+            <span style="font-size:11px; font-family:var(--font-mono); color:var(--teal);">{{ format_currency(data.weighted / 100) }}</span>
+          </div>
+        </div>
+        <span class="status-badge status-muted" style="min-width:30px; text-align:center;">{{ data.n }}</span>
+      </div>
+      {% endfor %}
+      {% if not pipeline_by_stage %}
+      <div class="empty-state"><p>No pipeline data yet</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Product Mix & Market Segments -->
+  <div style="display:flex; flex-direction:column; gap:16px;">
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Product Mix (MRR)</span>
+      </div>
+      <div class="panel-body">
+        {% if product_mix %}
+        <table class="data-table">
+          <thead><tr><th>Category</th><th style="text-align:right;">MRR</th></tr></thead>
+          <tbody>
+          {% for cat, val in product_mix.items() %}
+          <tr>
+            <td>
+              {% if cat == 'automated' %}<span class="status-badge status-teal">Automated</span>
+              {% elif cat == 'human' %}<span class="status-badge status-amber">Human</span>
+              {% elif cat == 'hybrid' %}<span class="status-badge status-blue">Hybrid</span>
+              {% else %}<span class="status-badge status-muted">{{ cat }}</span>{% endif %}
+            </td>
+            <td style="text-align:right; font-family:var(--font-mono);">{{ format_currency(val / 100) }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>No active products</p></div>
+        {% endif %}
+      </div>
+    </div>
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Market Segments</span>
+      </div>
+      <div class="panel-body">
+        {% if segments %}
+        <div style="display:flex; flex-wrap:wrap; gap:8px;">
+          {% for seg in segments %}
+          <span class="status-badge status-blue">{{ seg.market_segment|replace('_',' ')|title }} ({{ seg.n }})</span>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state"><p>No active segments</p></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Renewals & Activities -->
+<div class="dashboard-grid two-col" style="margin-top:16px;">
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Upcoming Renewals (90 days)</span>
+    </div>
+    <div class="panel-body no-padding">
+      {% if renewals %}
+      <table class="data-table">
+        <thead><tr><th>Company</th><th>Product</th><th>MRR</th><th>Renewal Date</th></tr></thead>
+        <tbody>
+        {% for r in renewals %}
+        <tr>
+          <td>{{ r.company_name }}</td>
+          <td>{{ r.product_name }}</td>
+          <td class="mono">{{ format_currency(r.mrr_value / 100) }}</td>
+          <td class="mono">{{ format_datetime(r.next_review_date) }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state"><p>No upcoming renewals</p></div>
+      {% endif %}
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <span class="panel-title">Recent Activities</span>
+      <a href="{{ url_for('crm_activities') }}" class="panel-action">View all →</a>
+    </div>
+    <div class="panel-body no-padding">
+      {% if recent_activities %}
+      <div class="activity-feed" style="padding:12px 18px;">
+        {% for a in recent_activities %}
+        <div class="activity-item">
+          <span class="activity-time">{{ format_datetime(a.activity_date) }}</span>
+          <div class="activity-content">
+            <span class="activity-action activity-type-{{ a.activity_type }}">{{ a.activity_type }}</span>
+            {% if a.contact_name %}<span class="activity-agent">{{ a.contact_name }}</span>{% endif %}
+            {% if a.company_name %}<span class="activity-ref">{{ a.company_name }}</span>{% endif %}
+            {% if a.subject %}<span style="color:var(--text-secondary); font-size:11px;">{{ a.subject }}</span>{% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state"><p>No recent activities</p></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

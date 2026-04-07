@@ -1,0 +1,193 @@
+{% extends "base.html" %}
+{% block title %}SRA Compliance — Acme Dale Legal Services Legal OS{% endblock %}
+{% block page_title %}SRA Compliance Dashboard{% endblock %}
+
+{% block content %}
+<!-- Compliance metrics -->
+<div class="metrics-grid cols-4">
+  <div class="metric-card">
+    <div class="metric-icon teal">🛡️</div>
+    <div class="metric-body">
+      <div class="metric-value">{{ passed or 0 }}/{{ total or 0 }}</div>
+      <div class="metric-label">Compliance Passed</div>
+    </div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-icon amber">◉</div>
+    <div class="metric-body">
+      <div class="metric-value amber">{{ pending_review or 0 }}</div>
+      <div class="metric-label">Pending Human Review</div>
+    </div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-icon crimson">⚠</div>
+    <div class="metric-body">
+      <div class="metric-value crimson">{{ conflict_flags or 0 }}</div>
+      <div class="metric-label">Conflict Flags</div>
+    </div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-icon blue">⚖️</div>
+    <div class="metric-body">
+      <div class="metric-value">{{ total or 0 }}</div>
+      <div class="metric-label">Total Matters</div>
+    </div>
+  </div>
+</div>
+
+<div class="dashboard-grid two-col">
+  <!-- Firm Config -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">Firm Configuration</h2>
+    </div>
+    <div class="panel-body">
+      <form method="POST" class="firm-config-form">
+        <div class="form-grid">
+          <div class="form-group">
+            <label class="form-label">SRA Registration Number</label>
+            <input type="text" name="sra_number" class="form-input" value="{{ cfg.sra_number }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Firm Name (as registered)</label>
+            <input type="text" name="firm_name" class="form-input" value="{{ cfg.firm_name }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Organisation Type</label>
+            <select name="org_type" class="form-input">
+              <option value="law_firm" {% if org_type=='law_firm' %}selected{% endif %}>Law Firm</option>
+              <option value="in_house" {% if org_type=='in_house' %}selected{% endif %}>In-House Legal Team</option>
+              <option value="abs" {% if org_type=='abs' %}selected{% endif %}>ABS (Alternative Business Structure)</option>
+            </select>
+            <div class="form-hint">
+              {% if org_type == 'in_house' %}
+              In-house legal team — SRA Accounts Rules and third-party client care letters do not apply.
+              {% elif org_type == 'abs' %}
+              Alternative Business Structure — subject to full law firm regulations plus ownership requirements.
+              {% else %}
+              Traditional law firm — full SRA compliance applies including client money handling.
+              {% endif %}
+            </div>
+          </div>
+          <div class="form-group">
+            <label class="form-label">PI Insurer</label>
+            <input type="text" name="pi_insurer" class="form-input" value="{{ cfg.pi_insurer }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">PI Policy Reference</label>
+            <input type="text" name="pi_policy" class="form-input" value="{{ cfg.pi_policy }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">COLP (Compliance Officer)</label>
+            <input type="text" name="colp_name" class="form-input" value="{{ cfg.colp_name }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">COFA</label>
+            <input type="text" name="cofa_name" class="form-input" value="{{ cfg.cofa_name }}">
+          </div>
+          <div class="form-group full">
+            <label class="form-label">Registered Address</label>
+            <input type="text" name="registered_address" class="form-input" value="{{ cfg.registered_address }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Complaints Email</label>
+            <input type="text" name="complaints_email" class="form-input" value="{{ cfg.complaints_email }}">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Website URL</label>
+            <input type="text" name="website_url" class="form-input" value="{{ cfg.website_url }}">
+          </div>
+        </div>
+        <button type="submit" class="btn btn-primary mt-16">Save Configuration</button>
+      </form>
+    </div>
+  </div>
+
+  <!-- Token cost by agent -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">Token Cost by Agent</h2>
+    </div>
+    <div class="panel-body">
+      {% if agent_costs %}
+      <table class="data-table">
+        <thead><tr><th>Agent</th><th>Tokens Used</th><th>Cost USD</th></tr></thead>
+        <tbody>
+          {% for row in agent_costs %}
+          <tr>
+            <td class="mono teal-text">{{ row.agent_id }}</td>
+            <td class="mono">{{ row.tokens|int }}</td>
+            <td class="mono amber-text">£{{ "%.2f"|format(row.cost or 0) }}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state"><p>No cost data yet.</p></div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- Conflict Log -->
+<div class="panel mt-16">
+  <div class="panel-header">
+    <h2 class="panel-title">Conflict Check Log</h2>
+  </div>
+  <div class="panel-body no-padding">
+    {% if conflict_log %}
+    <table class="data-table">
+      <thead>
+        <tr><th>Time</th><th>Ref</th><th>Client Checked</th><th>Type</th><th>Result</th><th>Resolution</th></tr>
+      </thead>
+      <tbody>
+        {% for c in conflict_log %}
+        <tr>
+          <td class="mono text-xs">{{ format_datetime(c.created_at) }}</td>
+          <td class="mono teal-text">{{ c.ref or '—' }}</td>
+          <td>{{ c.new_client_name }}</td>
+          <td>{{ c.check_type }}</td>
+          <td>
+            {% if c.result == 'clear' %}
+              <span class="check-icon teal">✓</span> Clear
+            {% elif c.result == 'flagged' %}
+              <span class="check-icon amber">◐</span> Flagged
+            {% else %}
+              <span class="text-muted">{{ c.result }}</span>
+            {% endif %}
+          </td>
+          <td class="text-sm">{{ c.resolution or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>No conflict checks yet.</p></div>
+    {% endif %}
+  </div>
+</div>
+
+<div class="sra-rules-panel mt-16">
+  <div class="panel-header"><h2 class="panel-title">SRA Regulatory Framework</h2></div>
+  <div class="panel-body">
+    <div class="rules-grid">
+      <div class="rule-item">
+        <div class="rule-title">SRA Code of Conduct — 10 Principles</div>
+        <div class="rule-desc">All AI agents must uphold: act in best interests of clients, maintain integrity, proper standards of work, confidentiality, and competence. Human accountability maintained at all times.</div>
+      </div>
+      <div class="rule-item">
+        <div class="rule-title">SRA Transparency Rules 2019</div>
+        <div class="rule-desc">Clients must receive: price information, service description, name of fee earner (AI disclosed), qualifications, and complaints procedure — all included in client care letter.</div>
+      </div>
+      <div class="rule-item">
+        <div class="rule-title">AI & Technology Guidance (SRA 2024)</div>
+        <div class="rule-desc">Solicitors remain accountable for AI outputs. Human review required before delivery. No misleading presentations of AI-generated content. Bias monitoring required.</div>
+      </div>
+      <div class="rule-item">
+        <div class="rule-title">Conflict of Interest</div>
+        <div class="rule-desc">Every new client instruction must be checked against existing client database. Conflicts must be flagged for human review before any work commences.</div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

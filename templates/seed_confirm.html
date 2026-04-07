@@ -1,0 +1,64 @@
+{% extends "base.html" %}
+{% block title %}Load Seed Data — Harper James Legal OS{% endblock %}
+{% block page_title %}Load Seed Data{% endblock %}
+
+{% block content %}
+<div class="panel" style="max-width: 600px; margin: 40px auto;">
+  <div class="panel-header">
+    <h2 class="panel-title">Load Demonstration Data</h2>
+  </div>
+  <div class="panel-body">
+    <div class="confirm-warning">
+      <div class="confirm-warning-icon">⚠️</div>
+      <div class="confirm-warning-text">
+        <strong>This will load demonstration seed data into the database.</strong>
+        <br><br>
+        The following will be created:
+        <ul style="margin: 8px 0; padding-left: 20px;">
+          <li>5 practice areas</li>
+          <li>8 matter types</li>
+          <li>5 clients</li>
+          <li>5 sample matters (if not already present)</li>
+          <li>Compliance checklist entries</li>
+          <li>Audit log entries</li>
+        </ul>
+        Existing data will not be overwritten (uses INSERT OR IGNORE).
+        <br><br>
+        <strong>Current matters in database: {{ current_matters }}</strong>
+      </div>
+    </div>
+
+    <form method="POST" action="{{ url_for('seed') }}" style="margin-top: 24px;">
+      <input type="hidden" name="confirm_seed" value="1">
+      <button type="submit" class="btn btn-primary">Load Seed Data</button>
+      <a href="{{ url_for('dashboard') }}" class="btn btn-secondary" style="margin-left: 8px;">Cancel</a>
+    </form>
+
+    <div class="text-xs text-muted" style="margin-top: 16px;">
+      To skip this confirmation in future, POST directly to 
+      <code>{{ url_for('seed') }}</code> or use <code>?force=true</code>
+    </div>
+  </div>
+</div>
+
+<style>
+.confirm-warning {
+  display: flex;
+  gap: 12px;
+  background: rgba(255, 180, 0, 0.08);
+  border: 1px solid rgba(255, 180, 0, 0.25);
+  border-radius: 8px;
+  padding: 16px;
+  font-size: 0.85rem;
+  color: var(--text-secondary);
+  line-height: 1.6;
+}
+.confirm-warning-icon {
+  font-size: 1.2rem;
+  flex-shrink: 0;
+}
+.confirm-warning-text ul {
+  line-height: 1.8;
+}
+</style>
+{% endblock %}

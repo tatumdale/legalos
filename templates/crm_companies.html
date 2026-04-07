@@ -1,0 +1,59 @@
+{% extends "base.html" %}
+{% block title %}Companies — CRM{% endblock %}
+{% block page_title %}Companies{% endblock %}
+
+{% block content %}
+<div class="page-toolbar">
+  <form method="get" class="filters">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search companies..." class="form-input" style="min-width:220px;">
+    <select name="status" class="filter-select" onchange="this.form.submit()">
+      <option value="">All statuses</option>
+      {% for s in ['prospect','active','inactive','churned'] %}
+      <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s|title }}</option>
+      {% endfor %}
+    </select>
+    <select name="segment" class="filter-select" onchange="this.form.submit()">
+      <option value="">All segments</option>
+      {% for s in ['law_firm','abs','corporate','sme','individual'] %}
+      <option value="{{ s }}" {% if seg_filter == s %}selected{% endif %}>{{ s|replace('_',' ')|title }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+  </form>
+  <a href="{{ url_for('crm_new_company') }}" class="btn btn-primary">+ Add Company</a>
+</div>
+
+<div class="panel">
+  <div class="panel-body no-padding">
+    {% if companies %}
+    <table class="data-table">
+      <thead>
+        <tr><th>Company Name</th><th>Org Type</th><th>Segment</th><th>Size</th><th>Contacts</th><th>Products</th><th>Status</th><th>Actions</th></tr>
+      </thead>
+      <tbody>
+      {% for c in companies %}
+      <tr class="clickable-row" onclick="window.location='/crm/companies/{{ c.id }}'">
+        <td style="font-weight:600;">{{ c.company_name }}</td>
+        <td><span class="action-badge">{{ c.org_type|replace('_',' ')|title }}</span></td>
+        <td><span class="action-badge">{{ c.market_segment|replace('_',' ')|title }}</span></td>
+        <td>{{ c.size|title }}</td>
+        <td class="mono">{{ c.contact_count }}</td>
+        <td class="mono">{{ c.active_products }}</td>
+        <td>
+          {% if c.status == 'prospect' %}<span class="status-badge status-amber">Prospect</span>
+          {% elif c.status == 'active' %}<span class="status-badge status-teal">Active</span>
+          {% elif c.status == 'inactive' %}<span class="status-badge status-muted">Inactive</span>
+          {% elif c.status == 'churned' %}<span class="status-badge status-crimson">Churned</span>
+          {% else %}<span class="status-badge status-muted">{{ c.status }}</span>{% endif %}
+        </td>
+        <td><a href="/crm/companies/{{ c.id }}" class="btn btn-ghost btn-sm" onclick="event.stopPropagation()">View</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>No companies found{% if q %} matching "{{ q }}"{% endif %}</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

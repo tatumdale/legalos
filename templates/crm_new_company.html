@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}New Company — CRM{% endblock %}
+{% block page_title %}New Company{% endblock %}
+
+{% block content %}
+<div class="panel" style="max-width:640px;">
+  <div class="panel-header"><span class="panel-title">Add Company</span></div>
+  <div class="panel-body">
+    <div class="form-grid">
+      <div class="form-group full">
+        <label class="form-label">Company Name *</label>
+        <input type="text" id="company_name" class="form-input" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Company Number</label>
+        <input type="text" id="company_number" class="form-input" placeholder="e.g. 12345678">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Org Type</label>
+        <select id="org_type" class="form-select">
+          <option value="law_firm">Law Firm</option>
+          <option value="abs">ABS</option>
+          <option value="corporate">Corporate</option>
+          <option value="sme">SME</option>
+          <option value="individual">Individual</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">Registered Address</label>
+        <input type="text" id="registered_address" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Size</label>
+        <select id="size" class="form-select">
+          <option value="micro">Micro (1-9)</option>
+          <option value="small" selected>Small (10-49)</option>
+          <option value="medium">Medium (50-249)</option>
+          <option value="large">Large (250+)</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Industry</label>
+        <input type="text" id="industry" class="form-input" placeholder="e.g. Legal Services">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Website</label>
+        <input type="url" id="website" class="form-input" placeholder="https://...">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Market Segment</label>
+        <select id="market_segment" class="form-select">
+          <option value="law_firm">Law Firm</option>
+          <option value="abs">ABS</option>
+          <option value="corporate">Corporate</option>
+          <option value="sme">SME</option>
+          <option value="individual">Individual</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select id="status" class="form-select">
+          <option value="prospect">Prospect</option>
+          <option value="active">Active</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Source</label>
+        <select id="source" class="form-select">
+          <option value="inbound_email">Inbound Email</option>
+          <option value="referral">Referral</option>
+          <option value="website">Website</option>
+          <option value="linkedin">LinkedIn</option>
+          <option value="event">Event</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">Notes</label>
+        <textarea id="notes" class="form-textarea" rows="3"></textarea>
+      </div>
+    </div>
+    <div style="margin-top:16px; display:flex; gap:8px; justify-content:flex-end;">
+      <a href="{{ url_for('crm_companies') }}" class="btn btn-secondary btn-sm">Cancel</a>
+      <button class="btn btn-primary btn-sm" onclick="submitCompany()">Create Company</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function submitCompany() {
+  var data = {
+    company_name: document.getElementById('company_name').value,
+    company_number: document.getElementById('company_number').value,
+    org_type: document.getElementById('org_type').value,
+    registered_address: document.getElementById('registered_address').value,
+    size: document.getElementById('size').value,
+    industry: document.getElementById('industry').value,
+    website: document.getElementById('website').value,
+    market_segment: document.getElementById('market_segment').value,
+    status: document.getElementById('status').value,
+    source: document.getElementById('source').value,
+    notes: document.getElementById('notes').value
+  };
+  if (!data.company_name) { alert('Company name is required'); return; }
+  fetch('/crm/companies/new', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  }).then(function(r) { return r.json(); })
+    .then(function(res) { window.location.href = '/crm/companies/' + res.id; });
+}
+</script>
+{% endblock %}

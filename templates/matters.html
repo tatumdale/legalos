@@ -1,0 +1,111 @@
+{% extends "base.html" %}
+{% block title %}Matters — Acme Dale Legal Services Legal OS{% endblock %}
+{% block page_title %}Matters{% endblock %}
+
+{% block content %}
+<div class="page-toolbar">
+  <form method="GET" class="filters">
+    <select name="status" class="filter-select">
+      <option value="">All statuses</option>
+      {% for s, label in STATUS_LABELS.items() %}
+      <option value="{{ s }}" {% if filter_status == s %}selected{% endif %}>{{ label }}</option>
+      {% endfor %}
+    </select>
+    <select name="practice_area" class="filter-select">
+      <option value="">All practice areas</option>
+      {% for pa in practice_areas %}
+      <option value="{{ pa }}" {% if filter_pa == pa %}selected{% endif %}>{{ pa }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-sm">Filter</button>
+    <a href="{{ url_for('matters') }}" class="btn btn-sm btn-ghost">Clear</a>
+  </form>
+</div>
+
+<div class="phase-filter-tabs">
+  <a href="{{ url_for('matters') }}" class="phase-filter-tab {% if not current_phase %}active{% endif %}">All</a>
+  {% for phase in PHASE_ORDER %}
+  <a href="{{ url_for('matters') }}?phase={{ phase }}"
+     class="phase-filter-tab {% if current_phase == phase %}active{% endif %}">
+    {{ PHASE_LABELS.get(phase, phase) }}
+  </a>
+  {% endfor %}
+</div>
+
+<div class="panel">
+  <div class="panel-body no-padding">
+    {% if matters %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Ref</th>
+          <th>Client</th>
+          <th>Practice Area</th>
+          <th>Matter Type</th>
+          <th>Confidence</th>
+          <th>Status</th>
+          <th>Compliance</th>
+          <th>Created</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for m in matters %}
+        {% set passed, total = matter_compliance_score(db(), m.id) %}
+        <tr class="clickable-row" data-href="{{ url_for('matter_detail', matter_id=m.id) }}">
+          <td class="mono teal-text">{{ m.ref or '—' }}</td>
+          <td>
+            <div>{{ m.client_name or '—' }}</div>
+            {% if m.client_email %}
+            <div class="text-xs text-muted">{{ m.client_email }}</div>
+            {% endif %}
+          </td>
+          <td>{{ m.practice_area }}</td>
+          <td>{{ m.matter_type }}</td>
+          <td>
+            {% if m.confidence_practice_area %}
+            <div class="confidence-bars">
+              <div class="conf-label">PA: {{ (m.confidence_practice_area * 100)|int }}%</div>
+              <div class="conf-label">MT: {{ (m.confidence_matter_type * 100)|int if m.confidence_matter_type else '—' }}%</div>
+            </div>
+            {% else %}—{% endif %}
+          </td>
+          <td>
+            <span class="phase-badge {{ phase_class(m.phase) }}">{{ PHASE_LABELS.get(m.phase, '') }}</span>
+            <span class="status-badge {{ matter_status_class(m.status) }}">{{ STATUS_LABELS.get(m.status, m.status) }}</span>
+            {% if m.hitl_status == 'awaiting_human' %}
+              <span class="hitl-badge hitl-awaiting">◐</span>
+            {% elif m.hitl_status == 'paused' %}
+              <span class="hitl-badge hitl-paused">⊘</span>
+            {% endif %}
+          </td>
+          <td>
+            {% if passed and total %}
+              {% if passed == total %}
+                <span class="check-icon teal">✓</span><span class="mono">{{ passed }}/{{ total }}</span>
+              {% else %}
+                <span class="check-icon amber">◐</span><span class="mono">{{ passed }}/{{ total }}</span>
+              {% endif %}
+            {% else %}
+              <span class="check-icon crimson">✗</span><span class="mono">0/9</span>
+            {% endif %}
+          </td>
+          <td class="mono text-sm">{{ format_datetime(m.created_at) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state">
+      <p>No matters found. Load seed data to see demonstration matters.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.clickable-row').forEach(row => {
+  row.style.cursor = 'pointer';
+  row.addEventListener('click', () => window.location = row.dataset.href);
+});
+</script>
+{% endblock %}

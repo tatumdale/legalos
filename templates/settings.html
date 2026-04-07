@@ -1,0 +1,213 @@
+{% extends "base.html" %}
+{% block title %}Settings — Acme Dale Legal Services Legal OS{% endblock %}
+{% block page_title %}Settings{% endblock %}
+
+{% block content %}
+<div class="settings-tabs">
+  <a href="{{ url_for('settings', tab='practice_areas') }}" class="settings-tab {% if tab == 'practice_areas' %}active{% endif %}">
+    ⚡ Practice Areas
+  </a>
+  <a href="{{ url_for('settings', tab='matter_types') }}" class="settings-tab {% if tab == 'matter_types' %}active{% endif %}">
+    📋 Matter Types
+  </a>
+  <a href="{{ url_for('settings', tab='soul') }}" class="settings-tab {% if tab == 'soul' %}active{% endif %}">
+    ✎ SOUL.md Files
+  </a>
+  <a href="{{ url_for('settings', tab='data') }}" class="settings-tab {% if tab == 'data' %}active{% endif %}">
+    💾 Data
+  </a>
+</div>
+
+<!-- Practice Areas -->
+{% if tab == 'practice_areas' %}
+<div class="panel">
+  <div class="panel-header">
+    <h2 class="panel-title">Practice Areas</h2>
+  </div>
+  <div class="panel-body no-padding">
+    {% if practice_areas %}
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>Slug</th><th>Description</th></tr></thead>
+      <tbody>
+        {% for pa in practice_areas %}
+        <tr>
+          <td class="teal-text">{{ pa.name }}</td>
+          <td class="mono text-sm">{{ pa.slug }}</td>
+          <td class="text-sm text-muted">{{ pa.description or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>No practice areas yet.</p></div>
+    {% endif %}
+  </div>
+  <div class="panel-body">
+    <h3 class="text-sm text-muted mb-8">Add Practice Area</h3>
+    <form method="POST" class="add-form">
+      <input type="hidden" name="tab" value="practice_areas">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input type="text" name="name" class="form-input" placeholder="e.g. Corporate" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Slug</label>
+          <input type="text" name="slug" class="form-input" placeholder="e.g. corporate" required>
+        </div>
+        <div class="form-group flex-grow">
+          <label class="form-label">Description</label>
+          <input type="text" name="description" class="form-input" placeholder="Brief description">
+        </div>
+        <button type="submit" class="btn btn-primary self-end">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- Matter Types -->
+{% if tab == 'matter_types' %}
+<div class="panel">
+  <div class="panel-header">
+    <h2 class="panel-title">Matter Types</h2>
+  </div>
+  <div class="panel-body no-padding">
+    {% if matter_types %}
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>Slug</th><th>Practice Area</th><th>AI Effort</th><th>Delivery</th><th>Fee Estimate</th></tr></thead>
+      <tbody>
+        {% for mt in matter_types %}
+        <tr>
+          <td class="teal-text">{{ mt.name }}</td>
+          <td class="mono text-sm">{{ mt.slug }}</td>
+          <td>{{ mt.practice_area_slug }}</td>
+          <td><span class="tag">{{ mt.ai_effort or '—' }}</span></td>
+          <td class="text-sm">{{ mt.delivery_pattern or '—' }}</td>
+          <td class="mono amber-text">{{ mt.fee_estimate or '—' }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>No matter types yet.</p></div>
+    {% endif %}
+  </div>
+  <div class="panel-body">
+    <h3 class="text-sm text-muted mb-8">Add Matter Type</h3>
+    <form method="POST" class="add-form">
+      <input type="hidden" name="tab" value="matter_types">
+      <div class="form-row">
+        <div class="form-group">
+          <label class="form-label">Name</label>
+          <input type="text" name="name" class="form-input" placeholder="e.g. Company Formation" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Slug</label>
+          <input type="text" name="slug" class="form-input" placeholder="e.g. company-formation" required>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Practice Area Slug</label>
+          <select name="practice_area_slug" class="form-select" required>
+            <option value="">Select...</option>
+            {% for pa in practice_areas %}<option value="{{ pa.slug }}">{{ pa.name }}</option>{% endfor %}
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">AI Effort</label>
+          <select name="ai_effort" class="form-select">
+            <option value="very_high">Very High</option>
+            <option value="high" selected>High</option>
+            <option value="medium">Medium</option>
+            <option value="low">Low</option>
+          </select>
+        </div>
+        <div class="form-group">
+          <label class="form-label">Delivery Pattern</label>
+          <input type="text" name="delivery_pattern" class="form-input" placeholder="e.g. discrete">
+        </div>
+        <div class="form-group">
+          <label class="form-label">Fee Estimate</label>
+          <input type="text" name="fee_estimate" class="form-input" placeholder="e.g. £500–£800 + VAT">
+        </div>
+        <button type="submit" class="btn btn-primary self-end">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- SOUL.md Editor -->
+{% if tab == 'soul' %}
+<div class="panel">
+  <div class="panel-header">
+    <h2 class="panel-title">SOUL.md Editor</h2>
+    <span class="text-xs text-muted">Changes are written directly to agent workspace files. A timestamped backup is created automatically.</span>
+  </div>
+  <div class="panel-body">
+    <form method="POST">
+      <input type="hidden" name="tab" value="soul">
+      {% for agent_name, soul_path in AGENT_SOULS.items() %}
+      <div class="soul-editor-section">
+        <div class="soul-editor-header">
+          <h3 class="soul-agent-name">{{ agent_name }}</h3>
+          <span class="text-xs mono text-muted">{{ soul_path }}</span>
+        </div>
+        <input type="hidden" name="agent" value="{{ agent_name }}">
+        <textarea name="content" class="soul-textarea" rows="20">{{ get_agent_soul(agent_name) }}</textarea>
+      </div>
+      {% endfor %}
+      <div class="mt-16">
+        <button type="submit" class="btn btn-primary">Save All SOUL.md Files</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- Data Management -->
+{% if tab == 'data' %}
+<div class="panel">
+  <div class="panel-header">
+    <h2 class="panel-title">Data Management</h2>
+  </div>
+  <div class="panel-body">
+    <div class="data-actions">
+      <div class="data-action-item">
+        <div>
+          <div class="data-action-title">Load Seed Data</div>
+          <div class="data-action-desc">Populates the database with 5 sample matters, 5 clients, 5 practice areas, 8 matter types, and full audit trail for demonstration purposes.</div>
+        </div>
+        <form method="POST" action="{{ url_for('seed') }}">
+          <button type="submit" class="btn btn-primary" onclick="return confirm('This will add seed data to the existing database. Continue?')">
+            Load Seed Data
+          </button>
+        </form>
+      </div>
+      <div class="data-action-item">
+        <div>
+          <div class="data-action-title">Database Location</div>
+          <div class="data-action-desc mono text-sm">~/.openclaw/workspace-ad-shared/db/ad_matters.db</div>
+        </div>
+      </div>
+      <div class="data-action-item">
+        <div>
+          <div class="data-action-title">Firm Configuration</div>
+          <div class="data-action-desc mono text-sm">~/.openclaw/workspace-ad-shared/db/firm_config.json</div>
+        </div>
+      </div>
+      <div class="data-action-item">
+        <div>
+          <div class="data-action-title">Agent Workspaces</div>
+          <div class="data-action-desc mono text-sm">
+            ~/.openclaw/workspace-ad-intake/SOUL.md<br>
+            ~/.openclaw/workspace-ad-review/SOUL.md<br>
+            ~/.openclaw/workspace-ad-corporate/SOUL.md
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

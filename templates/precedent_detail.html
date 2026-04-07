@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Precedent {{ matter.ref }} — HJ Legal OS{% endblock %}
+{% block page_title %}Precedent: {{ matter.ref }} <span class="text-muted">— {{ matter.client_name }}</span>{% endblock %}
+
+{% block content %}
+<div style="max-width: 900px;">
+  <div class="matter-header-card">
+    <div class="mh-row">
+      <div>
+        <div class="mh-client">{{ matter.client_name }}</div>
+        <div class="mh-email text-muted">{{ matter.practice_area }} / {{ matter.matter_type }}</div>
+      </div>
+      <div class="mh-right">
+        <span class="status-badge status-teal lg">Precedent</span>
+      </div>
+    </div>
+    <div class="mh-row mt-16">
+      <div class="mh-field">
+        <div class="mh-field-label">Matter Ref</div>
+        <div class="mh-field-value mono">{{ matter.ref }}</div>
+      </div>
+      <div class="mh-field">
+        <div class="mh-field-label">Completed</div>
+        <div class="mh-field-value mono">{{ precedent.completed_at[:10] if precedent.completed_at else '—' }}</div>
+      </div>
+      <div class="mh-field">
+        <div class="mh-field-label">Practice Area</div>
+        <div class="mh-field-value">{{ precedent.practice_area }}</div>
+      </div>
+      <div class="mh-field">
+        <div class="mh-field-label">Matter Type</div>
+        <div class="mh-field-value">{{ precedent.matter_type }}</div>
+      </div>
+    </div>
+  </div>
+
+  {% if precedent.summary %}
+  <div class="panel" style="margin-top: 16px;">
+    <div class="panel-header">
+      <h2 class="panel-title">Summary</h2>
+    </div>
+    <div class="panel-body">
+      <p class="text-sm" style="color: var(--text-secondary); line-height: 1.7;">{{ precedent.summary }}</p>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if precedent.outcome %}
+  <div class="panel" style="margin-top: 16px;">
+    <div class="panel-header">
+      <h2 class="panel-title">Outcome</h2>
+    </div>
+    <div class="panel-body">
+      <p class="text-sm" style="color: var(--text-secondary); line-height: 1.7;">{{ precedent.outcome }}</p>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if precedent.rag_summary %}
+  <div class="panel" style="margin-top: 16px;">
+    <div class="panel-header">
+      <h2 class="panel-title">RAG Summary</h2>
+    </div>
+    <div class="panel-body">
+      <div class="document-view">{{ precedent.rag_summary }}</div>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if precedent.key_lessons %}
+  <div class="panel" style="margin-top: 16px;">
+    <div class="panel-header">
+      <h2 class="panel-title">Key Lessons</h2>
+    </div>
+    <div class="panel-body">
+      <p class="text-sm" style="color: var(--text-secondary); line-height: 1.7;">{{ precedent.key_lessons }}</p>
+    </div>
+  </div>
+  {% endif %}
+
+  {% if documents %}
+  <div class="panel" style="margin-top: 16px;">
+    <div class="panel-header">
+      <h2 class="panel-title">Related Documents</h2>
+    </div>
+    <div class="panel-body no-padding">
+      <table class="data-table">
+        <thead>
+          <tr><th>Name</th><th>Type</th><th>Link</th></tr>
+        </thead>
+        <tbody>
+          {% for d in documents %}
+          <tr>
+            <td class="text-sm">{{ d.name }}</td>
+            <td><span class="action-badge">{{ d.doc_type }}</span></td>
+            <td>{% if d.drive_web_link %}<a href="{{ d.drive_web_link }}" target="_blank" class="btn btn-sm btn-secondary">Open</a>{% else %}<span class="text-muted">—</span>{% endif %}</td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  <div style="margin-top: 16px;">
+    <a href="{{ url_for('precedents') }}" class="btn btn-secondary">← Back to Precedent Library</a>
+    <a href="{{ url_for('matter_detail', matter_id=matter.id) }}" class="btn btn-secondary">View Full Matter</a>
+  </div>
+</div>
+{% endblock %}

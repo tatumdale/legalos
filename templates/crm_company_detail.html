@@ -1,0 +1,316 @@
+{% extends "base.html" %}
+{% block title %}{{ company.company_name }} — CRM{% endblock %}
+{% block page_title %}{{ company.company_name }}{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:20px;">
+  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+    <h2 style="font-size:22px; font-weight:700; color:var(--text-primary); margin:0;">{{ company.company_name }}</h2>
+    <span class="action-badge">{{ company.org_type|replace('_',' ')|title }}</span>
+    <span class="action-badge">{{ company.market_segment|replace('_',' ')|title }}</span>
+    {% if company.status == 'prospect' %}<span class="status-badge status-amber">Prospect</span>
+    {% elif company.status == 'active' %}<span class="status-badge status-teal">Active</span>
+    {% elif company.status == 'inactive' %}<span class="status-badge status-muted">Inactive</span>
+    {% elif company.status == 'churned' %}<span class="status-badge status-crimson">Churned</span>
+    {% else %}<span class="status-badge status-muted">{{ company.status }}</span>{% endif %}
+  </div>
+  <div style="margin-top:8px; font-size:12px; color:var(--text-muted); font-family:var(--font-mono);">
+    {% if company.company_number %}Co. {{ company.company_number }} · {% endif %}
+    {{ company.size|title }} · {{ company.industry or 'Legal' }}
+    {% if company.website %} · <a href="{{ company.website }}" class="teal-text" target="_blank">{{ company.website }}</a>{% endif %}
+  </div>
+</div>
+
+<!-- Contacts -->
+<div class="panel" style="margin-bottom:16px;">
+  <div class="panel-header">
+    <span class="panel-title">Contacts</span>
+    <a href="{{ url_for('crm_new_contact') }}" class="panel-action">+ Add Contact</a>
+  </div>
+  <div class="panel-body no-padding">
+    {% if contacts %}
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>Email</th><th>Role</th><th>Phone</th><th>DM</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for c in contacts %}
+      <tr class="clickable-row">
+        <td style="font-weight:600;"><a href="/crm/contacts/{{ c.id }}" style="color:inherit;text-decoration:none;">{{ c.first_name }} {{ c.last_name or '' }}</a></td>
+        <td class="mono text-sm">{{ c.email }}</td>
+        <td><span class="action-badge">{{ c.role }}</span></td>
+        <td class="mono text-sm">{{ c.phone or c.mobile or '—' }}</td>
+        <td>{% if c.is_key_decision_maker %}<span class="dm-badge">DM</span>{% endif %}</td>
+        <td>
+          {% if c.status == 'client' %}<span class="status-badge status-teal">Client</span>
+          {% elif c.status == 'lead' %}<span class="status-badge status-amber">Lead</span>
+          {% else %}<span class="status-badge status-muted">{{ c.status }}</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>No contacts linked</p></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Directors & PSC -->
+<div class="panel" style="margin-bottom:16px;">
+  <div class="panel-header">
+    <span class="panel-title">Directors & PSC</span>
+  </div>
+  <div class="panel-body no-padding">
+    {% if directors %}
+    <table class="data-table">
+      <thead><tr><th>Name</th><th>Email</th><th>PSC</th><th>Shareholding</th><th>Status</th><th>Appointed</th></tr></thead>
+      <tbody>
+      {% for d in directors %}
+      <tr>
+        <td style="font-weight:600;">{{ d.director_name }}</td>
+        <td class="mono text-sm">{{ d.director_email or '—' }}</td>
+        <td>{% if d.is_psc %}<span class="status-badge status-teal">PSC</span>{% endif %}</td>
+        <td class="mono">{{ d.psc_shareholding or '—' }}</td>
+        <td>{% if d.is_active %}<span class="status-badge status-teal">Active</span>{% else %}<span class="status-badge status-muted">Resigned</span>{% endif %}</td>
+        <td class="mono text-sm">{{ d.appointed_date or '—' }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>No directors on file</p></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Subscriptions -->
+<div class="panel" style="margin-bottom:16px;">
+  <div class="panel-header">
+    <span class="panel-title">Subscriptions</span>
+  </div>
+  <div class="panel-body no-padding">
+    {% if cps %}
+    <table class="data-table">
+      <thead><tr><th>Product</th><th>Category</th><th>Tier</th><th>MRR</th><th>Renewal</th><th>Status</th></tr></thead>
+      <tbody>
+      {% for cp in cps %}
+      <tr>
+        <td style="font-weight:600;">{{ cp.product_name }}</td>
+        <td>
+          {% if cp.category == 'automated' %}<span class="status-badge status-teal">Automated</span>
+          {% elif cp.category == 'human' %}<span class="status-badge status-amber">Human</span>
+          {% elif cp.category == 'hybrid' %}<span class="status-badge status-blue">Hybrid</span>
+          {% else %}<span class="action-badge">{{ cp.category }}</span>{% endif %}
+        </td>
+        <td>{{ cp.tier }}</td>
+        <td class="mono teal-text">{{ format_currency(cp.mrr_value / 100) }}</td>
+        <td class="mono text-sm">{{ format_datetime(cp.next_review_date) }}</td>
+        <td>
+          {% if cp.status == 'active' %}<span class="status-badge status-teal">Active</span>
+          {% elif cp.status == 'trial' %}<span class="status-badge status-blue">Trial</span>
+          {% else %}<span class="status-badge status-muted">{{ cp.status }}</span>{% endif %}
+        </td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>No subscriptions</p></div>
+    {% endif %}
+  </div>
+</div>
+
+
+<!-- Matters -->
+<div class="panel" style="margin-bottom:16px;">
+  <div class="panel-header">
+    <span class="panel-title">Matters</span>
+  </div>
+  <div class="panel-body no-padding">
+    {% if matters %}
+    <table class="data-table">
+      <thead><tr><th>Ref</th><th>Client</th><th>Practice Area</th><th>Stage</th><th>Phase</th><th>Created</th></tr></thead>
+      <tbody>
+      {% for m in matters %}
+      <tr>
+        <td><a href="/matter/{{ m.id }}?back=/crm/companies/{{ company.id }}" style="color:var(--teal);font-weight:600;">{{ m.ref or m.id[:8] }}</a></td>
+        <td class="text-sm">{{ m.client_name or '—' }}</td>
+        <td><span class="action-badge">{{ m.practice_area or '—' }}</span></td>
+        <td>
+          {% if m.status == 'enquiry_received' %}<span class="status-badge status-amber">Enquiry</span>
+          {% elif m.status == 'review_intent' %}<span class="status-badge status-blue">Pending Review</span>
+          {% elif m.status == 'matter_opened' %}<span class="status-badge status-teal">Open</span>
+          {% elif m.status == 'drafting' %}<span class="status-badge status-blue">Drafting</span>
+          {% elif m.status == 'statement_letter_sent' %}<span class="status-badge status-amber">Statement Sent</span>
+          {% elif m.status == 'closing_checklist' %}<span class="status-badge status-teal">Closing</span>
+          {% elif m.status == 'completed' %}<span class="status-badge status-muted">Completed</span>
+          {% else %}<span class="status-badge status-muted">{{ m.status }}</span>{% endif %}
+        </td>
+        <td>
+          {% if m.phase == 'intake' %}<span class="phase-badge phase-intake">Intake</span>
+          {% elif m.phase == 'planning' %}<span class="phase-badge phase-setup">Planning</span>
+          {% elif m.phase == 'execution' %}<span class="phase-badge phase-active">Execution</span>
+          {% elif m.phase == 'completion' %}<span class="phase-badge phase-closure">Completion</span>
+          {% else %}<span class="phase-badge phase-intake">{{ m.phase or 'Intake' }}</span>{% endif %}
+        </td>
+        <td class="mono text-sm">{{ format_datetime(m.created_at) }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>No matters linked to this company.</p></div>
+    {% endif %}
+  </div>
+</div>
+
+
+
+<!-- Matters -->
+<div class="panel" style="margin-bottom:16px;">
+  <div class="panel-header">
+    <span class="panel-title">Matters</span>
+  </div>
+  <div class="panel-body no-padding">
+    {% if matters %}
+    <table class="data-table">
+      <thead><tr><th>Ref</th><th>Client</th><th>Practice Area</th><th>Status</th><th>Phase</th><th>Created</th></tr></thead>
+      <tbody>
+      {% for m in matters %}
+      <tr>
+        <td><a href="/matter/{{ m.id }}?back=/crm/companies/{{ company.id }}"
+           style="color:var(--teal);font-weight:600;">{{ m.ref or m.id[:8] }}</a></td>
+        <td class="text-sm">{{ m.client_name or '—' }}</td>
+        <td><span class="action-badge">{{ m.practice_area or '—' }}</span></td>
+        <td>
+          {% if m.status == 'enquiry_received' %}<span class="status-badge status-amber">Enquiry</span>
+          {% elif m.status == 'review_intent' %}<span class="status-badge status-blue">Pending Review</span>
+          {% elif m.status == 'matter_opened' %}<span class="status-badge status-teal">Open</span>
+          {% elif m.status == 'drafting' %}<span class="status-badge status-blue">Drafting</span>
+          {% elif m.status == 'statement_letter_sent' %}<span class="status-badge status-amber">Statement Sent</span>
+          {% elif m.status == 'closing_checklist' %}<span class="status-badge status-teal">Closing</span>
+          {% elif m.status == 'completed' %}<span class="status-badge status-muted">Completed</span>
+          {% else %}<span class="status-badge status-muted">{{ m.status }}</span>{% endif %}
+        </td>
+        <td>
+          {% if m.phase == 'intake' %}<span class="phase-badge phase-intake">Intake</span>
+          {% elif m.phase == 'planning' %}<span class="phase-badge phase-setup">Planning</span>
+          {% elif m.phase == 'execution' %}<span class="phase-badge phase-active">Execution</span>
+          {% elif m.phase == 'completion' %}<span class="phase-badge phase-closure">Completion</span>
+          {% else %}<span class="phase-badge phase-intake">{{ m.phase or 'Intake' }}</span>{% endif %}
+        </td>
+        <td class="mono text-sm">{{ format_datetime(m.created_at) }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>No matters linked to this company.</p></div>
+    {% endif %}
+  </div>
+</div>
+
+
+<!-- Pipeline -->
+<div class="panel" style="margin-bottom:16px;">
+  <div class="panel-header">
+    <span class="panel-title">Pipeline</span>
+  </div>
+  <div class="panel-body no-padding">
+    {% if pipelines %}
+    <table class="data-table">
+      <thead><tr><th>Product</th><th>Contact</th><th>Stage</th><th>Value</th><th>Probability</th><th>Created</th></tr></thead>
+      <tbody>
+      {% for p in pipelines %}
+      <tr>
+        <td>{{ p.product_name or '—' }}</td>
+        <td>{{ p.contact_name or '—' }}</td>
+        <td><span class="stage-{{ p.stage }}" style="font-weight:600;">{{ p.stage|title }}</span></td>
+        <td class="mono">{{ format_currency(p.estimated_value / 100) }}</td>
+        <td class="mono">{{ p.conversion_probability }}%</td>
+        <td class="mono text-sm">{{ format_datetime(p.created_at) }}</td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>No pipeline entries</p></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Activities -->
+<div class="panel" style="margin-bottom:16px;">
+  <div class="panel-header">
+    <span class="panel-title">Recent Activities</span>
+  </div>
+  <div class="panel-body">
+    {% if activities %}
+    <div class="activity-feed">
+      {% for a in activities %}
+      <div class="activity-item">
+        <span class="activity-time">{{ format_datetime(a.activity_date) }}</span>
+        <div class="activity-content">
+          <span class="activity-action activity-type-{{ a.activity_type }}">{{ a.activity_type }}</span>
+          {% if a.contact_name %}<span class="activity-agent">{{ a.contact_name }}</span>{% endif %}
+          {% if a.subject %}<span style="color:var(--text-secondary); font-size:11px;">{{ a.subject }}</span>{% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <div class="empty-state"><p>No activities recorded</p></div>
+    {% endif %}
+  </div>
+</div>
+
+<!-- Drive folder -->
+{% if drive_folder %}
+<div class="panel" style="margin-bottom:16px;">
+  <div class="panel-header"><span class="panel-title">Documents</span></div>
+  <div class="panel-body">
+    <a href="{{ drive_folder.drive_web_link }}" target="_blank" class="btn btn-secondary btn-sm">Open Drive Folder →</a>
+  </div>
+</div>
+{% endif %}
+
+<!-- Log Activity -->
+<div class="panel">
+  <div class="panel-header"><span class="panel-title">Log Activity</span></div>
+  <div class="panel-body">
+    <div class="form-row">
+      <div class="form-group">
+        <label class="form-label">Type</label>
+        <select id="act-type" class="form-select">
+          <option value="call">Call</option><option value="email">Email</option><option value="meeting">Meeting</option>
+          <option value="note" selected>Note</option><option value="letter">Letter</option><option value="intake">Intake</option>
+        </select>
+      </div>
+      <div class="form-group flex-grow">
+        <label class="form-label">Subject</label>
+        <input type="text" id="act-subject" class="form-input" placeholder="Brief subject...">
+      </div>
+    </div>
+    <div class="form-group" style="margin-top:10px;">
+      <label class="form-label">Notes</label>
+      <textarea id="act-body" class="form-textarea" rows="3" placeholder="Details..."></textarea>
+    </div>
+    <div style="margin-top:10px;"><button class="btn btn-primary btn-sm" onclick="submitActivity()">Save Activity</button></div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function submitActivity() {
+  fetch(window.location.pathname, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      activity_type: document.getElementById('act-type').value,
+      subject: document.getElementById('act-subject').value,
+      body: document.getElementById('act-body').value
+    })
+  }).then(r => r.json()).then(() => window.location.reload());
+}
+</script>
+{% endblock %}

@@ -1,0 +1,116 @@
+{% extends "base.html" %}
+{% block title %}New Contact — CRM{% endblock %}
+{% block page_title %}New Contact{% endblock %}
+
+{% block content %}
+<div class="panel" style="max-width:640px;">
+  <div class="panel-header"><span class="panel-title">Add Contact</span></div>
+  <div class="panel-body">
+    <div class="form-grid">
+      <div class="form-group">
+        <label class="form-label">First Name *</label>
+        <input type="text" id="first_name" class="form-input" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Last Name</label>
+        <input type="text" id="last_name" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Email *</label>
+        <input type="email" id="email" class="form-input" required>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Phone</label>
+        <input type="text" id="phone" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Mobile</label>
+        <input type="text" id="mobile" class="form-input">
+      </div>
+      <div class="form-group">
+        <label class="form-label">Company</label>
+        <select id="company_id" class="form-select">
+          <option value="">— None —</option>
+          {% for c in companies %}
+          <option value="{{ c.id }}">{{ c.company_name }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Role</label>
+        <select id="role" class="form-select">
+          {% for r in ['Managing Partner','Senior Partner','Partner','Associate','Legal Executive','Paralegal','Practice Manager','COLP','COFA','Other'] %}
+          <option value="{{ r }}">{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Status</label>
+        <select id="status" class="form-select">
+          <option value="lead">Lead</option>
+          <option value="enquiry">Enquiry</option>
+          <option value="client">Client</option>
+          <option value="inactive">Inactive</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label">Source</label>
+        <select id="source" class="form-select">
+          <option value="inbound_email">Inbound Email</option>
+          <option value="referral">Referral</option>
+          <option value="website">Website</option>
+          <option value="linkedin">LinkedIn</option>
+          <option value="event">Event</option>
+          <option value="other">Other</option>
+        </select>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="is_key_decision_maker"> Key Decision Maker
+        </label>
+      </div>
+      <div class="form-group">
+        <label class="form-label" style="display:flex; align-items:center; gap:8px;">
+          <input type="checkbox" id="marketing_consent"> Marketing Consent
+        </label>
+      </div>
+      <div class="form-group full">
+        <label class="form-label">Notes</label>
+        <textarea id="notes" class="form-textarea" rows="3"></textarea>
+      </div>
+    </div>
+    <div style="margin-top:16px; display:flex; gap:8px; justify-content:flex-end;">
+      <a href="{{ url_for('crm_contacts') }}" class="btn btn-secondary btn-sm">Cancel</a>
+      <button class="btn btn-primary btn-sm" onclick="submitContact()">Create Contact</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function submitContact() {
+  var data = {
+    first_name: document.getElementById('first_name').value,
+    last_name: document.getElementById('last_name').value,
+    email: document.getElementById('email').value,
+    phone: document.getElementById('phone').value,
+    mobile: document.getElementById('mobile').value,
+    company_id: document.getElementById('company_id').value,
+    role: document.getElementById('role').value,
+    status: document.getElementById('status').value,
+    source: document.getElementById('source').value,
+    is_key_decision_maker: document.getElementById('is_key_decision_maker').checked,
+    marketing_consent: document.getElementById('marketing_consent').checked,
+    notes: document.getElementById('notes').value
+  };
+  if (!data.first_name || !data.email) { alert('First name and email are required'); return; }
+  fetch('/crm/contacts/new', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify(data)
+  }).then(function(r) { return r.json(); })
+    .then(function(res) { window.location.href = '/crm/contacts/' + res.id; });
+}
+</script>
+{% endblock %}

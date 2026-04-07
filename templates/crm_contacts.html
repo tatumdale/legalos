@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% block title %}Contacts — CRM{% endblock %}
+{% block page_title %}Contacts{% endblock %}
+
+{% block content %}
+<div class="page-toolbar">
+  <form method="get" class="filters">
+    <input type="text" name="q" value="{{ q }}" placeholder="Search contacts..." class="form-input" style="min-width:220px;">
+    <select name="status" class="filter-select" onchange="this.form.submit()">
+      <option value="">All statuses</option>
+      {% for s in ['lead','enquiry','client','inactive'] %}
+      <option value="{{ s }}" {% if status_filter == s %}selected{% endif %}>{{ s|title }}</option>
+      {% endfor %}
+    </select>
+    <select name="role" class="filter-select" onchange="this.form.submit()">
+      <option value="">All roles</option>
+      {% for r in ['Managing Partner','Senior Partner','Partner','Associate','Legal Executive','Paralegal','Practice Manager','COLP','COFA','Other'] %}
+      <option value="{{ r }}" {% if role_filter == r %}selected{% endif %}>{{ r }}</option>
+      {% endfor %}
+    </select>
+    <button type="submit" class="btn btn-secondary btn-sm">Search</button>
+  </form>
+  <a href="{{ url_for('crm_new_contact') }}" class="btn btn-primary">+ Add Contact</a>
+</div>
+
+<div class="panel">
+  <div class="panel-body no-padding">
+    {% if contacts %}
+    <table class="data-table">
+      <thead>
+        <tr>
+          <th>Name</th><th>Company</th><th>Role</th><th>Email</th><th>Status</th><th>DM</th><th>Source</th><th>Created</th><th>Actions</th>
+        </tr>
+      </thead>
+      <tbody>
+      {% for c in contacts %}
+      <tr class="clickable-row" onclick="window.location='/crm/contacts/{{ c.id }}'">
+        <td style="font-weight:600;">{{ c.first_name }} {{ c.last_name or '' }}</td>
+        <td>{{ c.company_name or '—' }}</td>
+        <td><span class="action-badge">{{ c.role }}</span></td>
+        <td class="mono text-sm">{{ c.email }}</td>
+        <td>
+          {% if c.status == 'lead' %}<span class="status-badge status-amber">Lead</span>
+          {% elif c.status == 'enquiry' %}<span class="status-badge status-blue">Enquiry</span>
+          {% elif c.status == 'client' %}<span class="status-badge status-teal">Client</span>
+          {% elif c.status == 'inactive' %}<span class="status-badge status-muted">Inactive</span>
+          {% else %}<span class="status-badge status-muted">{{ c.status }}</span>{% endif %}
+        </td>
+        <td>{% if c.is_key_decision_maker %}<span class="dm-badge">DM</span>{% endif %}</td>
+        <td class="text-sm text-muted">{{ c.source or '' }}</td>
+        <td class="mono text-sm">{{ format_datetime(c.created_at) }}</td>
+        <td><a href="/crm/contacts/{{ c.id }}" class="btn btn-ghost btn-sm" onclick="event.stopPropagation()">View</a></td>
+      </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="empty-state"><p>No contacts found{% if q %} matching "{{ q }}"{% endif %}</p></div>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

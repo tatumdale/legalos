@@ -1,0 +1,169 @@
+{% extends "base.html" %}
+{% block title %}{{ contact.first_name }} {{ contact.last_name or '' }} — CRM{% endblock %}
+{% block page_title %}{{ contact.first_name }} {{ contact.last_name or '' }}{% endblock %}
+
+{% block content %}
+<div style="margin-bottom:20px;">
+  <div style="display:flex; align-items:center; gap:12px; flex-wrap:wrap;">
+    <h2 style="font-size:22px; font-weight:700; color:var(--text-primary); margin:0;">{{ contact.first_name }} {{ contact.last_name or '' }}</h2>
+    {% if company %}<span class="action-badge">{{ company.company_name }}</span>{% endif %}
+    <span class="action-badge">{{ contact.role }}</span>
+    {% if contact.is_key_decision_maker %}<span class="dm-badge">Decision Maker</span>{% endif %}
+    {% if contact.status == 'lead' %}<span class="status-badge status-amber">Lead</span>
+    {% elif contact.status == 'enquiry' %}<span class="status-badge status-blue">Enquiry</span>
+    {% elif contact.status == 'client' %}<span class="status-badge status-teal">Client</span>
+    {% else %}<span class="status-badge status-muted">{{ contact.status }}</span>{% endif %}
+  </div>
+  <div style="margin-top:8px; font-size:12px; color:var(--text-muted); font-family:var(--font-mono);">
+    {{ contact.email }} {% if contact.phone %}· {{ contact.phone }}{% endif %} {% if contact.mobile %}· {{ contact.mobile }}{% endif %}
+  </div>
+</div>
+
+<button class="btn btn-primary btn-sm" onclick="document.getElementById('activity-modal').style.display='flex'">+ Log Activity</button>
+
+<div class="dashboard-grid" style="margin-top:16px;">
+  <!-- Left column -->
+  <div>
+    <!-- Activities -->
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-header">
+        <span class="panel-title">Activities</span>
+      </div>
+      <div class="panel-body">
+        {% if activities %}
+        <div class="activity-feed">
+          {% for a in activities %}
+          <div class="activity-item">
+            <span class="activity-time">{{ format_datetime(a.activity_date) }}</span>
+            <div class="activity-content">
+              <span class="activity-action activity-type-{{ a.activity_type }}">{{ a.activity_type }}</span>
+              {% if a.subject %}<span style="color:var(--text-primary); font-weight:500; font-size:12px;">{{ a.subject }}</span>{% endif %}
+              {% if a.body %}<span style="color:var(--text-secondary); font-size:11px;">{{ a.body[:120] }}{% if a.body|length > 120 %}...{% endif %}</span>{% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="empty-state"><p>No activities recorded</p></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Pipeline -->
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Pipeline</span>
+      </div>
+      <div class="panel-body no-padding">
+        {% if pipelines %}
+        <table class="data-table">
+          <thead><tr><th>Product</th><th>Stage</th><th>Value</th><th>Probability</th><th>Created</th></tr></thead>
+          <tbody>
+          {% for p in pipelines %}
+          <tr>
+            <td>{{ p.product_name or '—' }}</td>
+            <td><span class="stage-{{ p.stage }}">{{ p.stage|title }}</span></td>
+            <td class="mono">{{ format_currency(p.estimated_value / 100) }}</td>
+            <td class="mono">{{ p.conversion_probability }}%</td>
+            <td class="mono text-sm">{{ format_datetime(p.created_at) }}</td>
+          </tr>
+          {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>No pipeline entries</p></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Right column -->
+  <div>
+    {% if company %}
+    <div class="panel" style="margin-bottom:16px;">
+      <div class="panel-header">
+        <span class="panel-title">Company</span>
+      </div>
+      <div class="panel-body">
+        <div class="meta-grid">
+          <div class="meta-item"><span class="meta-label">Name</span><span class="meta-value">{{ company.company_name }}</span></div>
+          <div class="meta-item"><span class="meta-label">Type</span><span class="meta-value">{{ company.org_type|replace('_',' ')|title }}</span></div>
+          <div class="meta-item"><span class="meta-label">Segment</span><span class="meta-value">{{ company.market_segment|replace('_',' ')|title }}</span></div>
+          <div class="meta-item"><span class="meta-label">Size</span><span class="meta-value">{{ company.size|title }}</span></div>
+          <div class="meta-item"><span class="meta-label">Status</span><span class="meta-value">{{ company.status|title }}</span></div>
+          {% if company.website %}<div class="meta-item"><span class="meta-label">Website</span><a href="{{ company.website }}" class="meta-value teal-text" target="_blank">{{ company.website }}</a></div>{% endif %}
+        </div>
+        <div style="margin-top:12px;"><a href="/crm/companies/{{ company.id }}" class="btn btn-secondary btn-sm btn-block">View Company →</a></div>
+      </div>
+    </div>
+    {% endif %}
+
+    <div class="panel">
+      <div class="panel-header">
+        <span class="panel-title">Subscriptions</span>
+      </div>
+      <div class="panel-body">
+        {% if cps %}
+        {% for cp in cps %}
+        <div style="display:flex; justify-content:space-between; align-items:center; padding:8px 0; border-bottom:1px solid var(--border);">
+          <div>
+            <div style="font-weight:600; font-size:13px;">{{ cp.product_name }}</div>
+            <div style="font-size:11px; color:var(--text-muted);">{{ cp.tier }} · {{ cp.status|title }}</div>
+          </div>
+          <div class="mono" style="font-size:13px; color:var(--teal);">{{ format_currency(cp.mrr_value / 100) }}/mo</div>
+        </div>
+        {% endfor %}
+        {% else %}
+        <div class="empty-state"><p>No subscriptions</p></div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Activity Modal -->
+<div id="activity-modal" style="display:none; position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.6); z-index:1000; align-items:center; justify-content:center;">
+  <div style="background:var(--bg-card); border:1px solid var(--border); border-radius:var(--radius); padding:24px; width:480px; max-width:90vw;">
+    <h3 style="font-size:16px; font-weight:700; margin-bottom:16px;">Log Activity</h3>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label class="form-label">Type</label>
+      <select id="act-type" class="form-select">
+        <option value="call">Call</option>
+        <option value="email">Email</option>
+        <option value="meeting">Meeting</option>
+        <option value="note" selected>Note</option>
+        <option value="letter">Letter</option>
+        <option value="intake">Intake</option>
+      </select>
+    </div>
+    <div class="form-group" style="margin-bottom:12px;">
+      <label class="form-label">Subject</label>
+      <input type="text" id="act-subject" class="form-input" placeholder="Brief subject...">
+    </div>
+    <div class="form-group" style="margin-bottom:16px;">
+      <label class="form-label">Notes</label>
+      <textarea id="act-body" class="form-textarea" rows="4" placeholder="Details..."></textarea>
+    </div>
+    <div style="display:flex; gap:8px; justify-content:flex-end;">
+      <button class="btn btn-secondary btn-sm" onclick="document.getElementById('activity-modal').style.display='none'">Cancel</button>
+      <button class="btn btn-primary btn-sm" onclick="submitActivity()">Save Activity</button>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function submitActivity() {
+  fetch(window.location.pathname, {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({
+      activity_type: document.getElementById('act-type').value,
+      subject: document.getElementById('act-subject').value,
+      body: document.getElementById('act-body').value
+    })
+  }).then(r => r.json()).then(() => window.location.reload());
+}
+</script>
+{% endblock %}

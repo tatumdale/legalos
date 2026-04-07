@@ -1,0 +1,220 @@
+{% extends "base.html" %}
+{% block title %}Dashboard — HJ Legal OS{% endblock %}
+{% block page_title %}Command Centre{% endblock %}
+
+{% block content %}
+
+<!-- Metric cards -->
+<div class="metrics-grid">
+  <div class="metric-card">
+    <div class="metric-icon teal">📋</div>
+    <div class="metric-body">
+      <div class="metric-value">{{ open_count }}</div>
+      <div class="metric-label">Open Matters</div>
+    </div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-icon amber">◉</div>
+    <div class="metric-body">
+      <div class="metric-value amber">{{ review_count }}</div>
+      <div class="metric-label">Awaitaiting Review</div>
+    </div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-icon blue">◈</div>
+    <div class="metric-body">
+      <div class="metric-value mono">{{ tokens_today|default(0)|int|format_number if false else (tokens_today|default(0)) }}</div>
+      <div class="metric-label">Tokens Today</div>
+    </div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-icon crimson">£</div>
+    <div class="metric-body">
+      <div class="metric-value amber">£{{ "%.2f"|format(cost_today or 0) }}</div>
+      <div class="metric-label">Token Cost Today</div>
+    </div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-icon teal">🛡️</div>
+    <div class="metric-body">
+      <div class="metric-value">{{ compliance_pct }}%</div>
+      <div class="metric-label">Compliance Score</div>
+    </div>
+  </div>
+  <div class="metric-card">
+    <div class="metric-icon blue">⚖️</div>
+    <div class="metric-body">
+      <div class="metric-value">{{ total_matters or 0 }}</div>
+      <div class="metric-label">Total Matters</div>
+    </div>
+  </div>
+</div>
+
+<!-- Upcoming Deadlines -->
+<div class="panel" style="margin-bottom: 16px;">
+  <div class="panel-header">
+    <h2 class="panel-title">Upcoming Deadlines</h2>
+    <span class="text-xs text-muted" id="deadline-count"></span>
+  </div>
+  <div class="panel-body no-padding" id="deadline-widget">
+    <div class="empty-state"><p>Loading deadlines…</p></div>
+  </div>
+</div>
+<script>
+fetch('/api/deadlines').then(r => r.json()).then(data => {
+  const el = document.getElementById('deadline-widget');
+  const cnt = document.getElementById('deadline-count');
+  if (!data || !data.length) {
+    el.innerHTML = '<div class="empty-state"><p>No upcoming deadlines.</p></div>';
+    cnt.textContent = '0';
+    return;
+  }
+  cnt.textContent = data.length + ' pending';
+  const rows = data.slice(0, 5).map(d => {
+    const isPast = d.deadline_date < new Date().toISOString().slice(0,10);
+    return '<tr>' +
+      '<td class="mono text-xs ' + (isPast ? 'crimson-text' : '') + '">' + (d.deadline_date||'') + '</td>' +
+      '<td class="mono text-sm">' + (d.ref||'') + '</td>' +
+      '<td class="text-sm">' + (d.client_name||'') + '</td>' +
+      '<td class="text-sm">' + (d.description||'') + '</td>' +
+      '<td><span class="action-badge">' + (d.deadline_type||d.practice_area||'') + '</span></td>' +
+      '</tr>';
+  }).join('');
+  el.innerHTML = '<table class="data-table"><thead><tr><th>Date</th><th>Ref</th><th>Client</th><th>Description</th><th>Type</th></tr></thead><tbody>' + rows + '</tbody></table>';
+}).catch(() => {
+  document.getElementById('deadline-widget').innerHTML = '<div class="empty-state"><p>Could not load deadlines.</p></div>';
+});
+</script>
+
+<div class="dashboard-grid">
+  <!-- Active Matters -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">Active Matters</h2>
+      <a href="{{ url_for('matters') }}" class="panel-action">View all →</a>
+    </div>
+    <div class="panel-body">
+      {% if active %}
+      <table class="data-table">
+        <thead>
+          <tr>
+            <th>Ref</th>
+            <th>Client</th>
+            <th>Area</th>
+            <th>Type</th>
+            <th>Status</th>
+            <th>Compliance</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for m in active %}
+          {% set comp_passed = compliance_scores.get(m.id, (0, 9))[0] %}
+          {% set comp_total = compliance_scores.get(m.id, (0, 9))[1] %}
+          <tr class="clickable-row" data-href="{{ url_for('matter_detail', matter_id=m.id) }}">
+            <td class="mono">{{ m.ref or '—' }}</td>
+            <td>{{ m.client_name or '—' }}</td>
+            <td>{{ m.practice_area }}</td>
+            <td>{{ m.matter_type }}</td>
+            <td>
+              <span class="phase-badge {{ phase_class(m.phase) }}">{{ PHASE_LABELS.get(m.phase, '') }}</span>
+              <span class="status-badge {{ matter_status_class(m.status) }}">{{ STATUS_LABELS.get(m.status, m.status) }}</span>
+              {% if m.hitl_status == 'awaiting_human' %}
+                <span class="hitl-badge hitl-awaiting">◐</span>
+              {% elif m.hitl_status == 'paused' %}
+                <span class="hitl-badge hitl-paused">⊘</span>
+              {% endif %}
+            </td>
+            <td>
+              {% if comp_total > 0 and comp_passed == comp_total %}
+                <span class="check-icon teal">✓</span>{{ comp_passed }}/{{ comp_total }}
+              {% elif comp_passed > 0 %}
+                <span class="check-icon amber">◐</span>{{ comp_passed }}/{{ comp_total }}
+              {% else %}
+                <span class="check-icon crimson">✗</span>0/9
+              {% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% else %}
+      <div class="empty-state">
+        <p>No active matters. Load seed data to see demonstration matters.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- Recent Activity -->
+  <div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">Recent Activity</h2>
+      <a href="{{ url_for('audit') }}" class="panel-action">Full log →</a>
+    </div>
+    <div class="panel-body">
+      {% if recent %}
+      <div class="activity-feed">
+        {% for entry in recent %}
+        <div class="activity-item">
+          <div class="activity-time mono">{{ format_datetime(entry.created_at) }}</div>
+          <div class="activity-content">
+            <span class="activity-agent">{{ entry.agent_id }}</span>
+            <span class="activity-action">{{ entry.action_type }}</span>
+            {% if entry.ref %}
+              <span class="activity-ref mono">{{ entry.ref }}</span>
+            {% endif %}
+          </div>
+          {% if entry.cost_usd and entry.cost_usd > 0 %}
+          <div class="activity-cost mono">£{{ "%.4f"|format(entry.cost_usd) }}</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="empty-state">
+        <p>No activity recorded yet.</p>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+
+<!-- SRA Compliance Overview -->
+<div class="panel" style="margin-top: 16px;">
+  <div class="panel-header">
+    <h2 class="panel-title">SRA Compliance Overview</h2>
+    <a href="{{ url_for('compliance') }}" class="panel-action">Full compliance →</a>
+  </div>
+  <div class="panel-body">
+    {% if total_matters and total_matters > 0 %}
+    <div class="compliance-overview">
+      <div class="compliance-item">
+        <span class="compliance-label">Matters with all checks passed</span>
+        <div class="compliance-bar-wrap">
+          <div class="compliance-bar" style="width: {{ (passed / total_matters * 100)|int }}%"></div>
+        </div>
+        <span class="compliance-count">{{ passed or 0 }}/{{ total_matters }}</span>
+      </div>
+      <div class="compliance-item">
+        <span class="compliance-label">Pending human review (AD-Review queue)</span>
+        <div class="compliance-bar-wrap">
+          <div class="compliance-bar amber" style="width: {{ (review_count / total_matters * 100)|int }}%"></div>
+        </div>
+        <span class="compliance-count amber">{{ review_count or 0 }} matters</span>
+      </div>
+    </div>
+    {% else %}
+    <div class="empty-state">
+      <p>No matters yet. <a href="{{ url_for('seed') }}" onclick="return confirm('Load seed data?')">Load seed data</a> to see the system in action.</p>
+    </div>
+    {% endif %}
+  </div>
+</div>
+
+<script>
+document.querySelectorAll('.clickable-row').forEach(row => {
+  row.style.cursor = 'pointer';
+  row.addEventListener('click', () => window.location = row.dataset.href);
+});
+</script>
+{% endblock %}

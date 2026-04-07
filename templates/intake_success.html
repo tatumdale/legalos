@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Enquiry Received — Acme Dale Legal Services Legal OS{% endblock %}
+{% block page_title %}Enquiry Submitted{% endblock %}
+
+{% block content %}
+<div style="max-width: 680px;">
+  <div class="panel">
+    <div class="panel-header">
+      <h2 class="panel-title">Thank You, {{ client_name }}</h2>
+      <span class="check-icon teal lg">✓</span>
+    </div>
+    <div class="panel-body">
+      <div style="text-align: center; padding: 24px 0;">
+        <div style="font-size: 48px; margin-bottom: 16px;">✓</div>
+        <h3 style="font-size: 18px; font-weight: 700; color: var(--text-primary); margin-bottom: 8px;">Your enquiry has been received</h3>
+        <p class="text-sm" style="color: var(--text-secondary); margin-bottom: 24px;">A member of our team will review your matter and be in touch shortly.</p>
+
+        <div style="background: var(--bg-input); border: 1px solid var(--border); border-radius: var(--radius); padding: 20px; text-align: left; margin-bottom: 20px;">
+          <div class="mh-field-label">Your Matter Reference</div>
+          <div style="font-size: 22px; font-weight: 700; font-family: var(--font-mono); color: var(--teal); margin-top: 4px;">{{ ref }}</div>
+          <p class="text-xs text-muted" style="margin-top: 8px;">Please quote this reference in any future correspondence.</p>
+        </div>
+
+        <div style="text-align: left;">
+          <h4 style="font-size: 13px; font-weight: 600; color: var(--text-primary); margin-bottom: 8px;">What happens next?</h4>
+          <div style="display: flex; flex-direction: column; gap: 8px;">
+            <div style="display: flex; gap: 10px; align-items: flex-start;">
+              <span class="check-icon teal">1.</span>
+              <span class="text-sm" style="color: var(--text-secondary);">Your enquiry is reviewed by our intake team</span>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: flex-start;">
+              <span class="check-icon teal">2.</span>
+              <span class="text-sm" style="color: var(--text-secondary);">A conflict check is run against our existing client base</span>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: flex-start;">
+              <span class="check-icon teal">3.</span>
+              <span class="text-sm" style="color: var(--text-secondary);">A solicitor will contact you to discuss your matter</span>
+            </div>
+            <div style="display: flex; gap: 10px; align-items: flex-start;">
+              <span class="check-icon teal">4.</span>
+              <span class="text-sm" style="color: var(--text-secondary);">You'll receive a client care letter with full terms of engagement</span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="panel" style="margin-top: 16px;">
+    <div class="panel-body">
+      <div class="ai-disclosure">
+        <p>{{ cfg.firm_name }} is authorised and regulated by the Solicitors Regulation Authority (SRA No: {{ cfg.sra_number }}).</p>
+        <p>If you have any concerns about our service, please contact {{ cfg.complaints_email }}.</p>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}

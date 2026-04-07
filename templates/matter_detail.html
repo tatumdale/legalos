@@ -1,0 +1,1134 @@
+{% extends "base.html" %}
+{% block title %}Matter {{ matter.ref }} — HJ Legal OS{% endblock %}
+{% block page_title %}{{ matter.ref }} <span class="text-muted">— {{ matter.client_name }}</span>{% endblock %}
+
+{% block content %}
+<div class="matter-layout">
+
+  <!-- Left column -->
+  <div class="matter-main">
+
+    <!-- Header card -->
+    <div class="matter-header-card">
+      <div class="mh-row">
+        <div>
+          <div class="mh-client">{{ matter.client_name }}</div>
+          <div class="mh-email text-muted">{{ matter.client_email }}</div>
+        </div>
+        <div class="mh-right">
+          <div class="matter-status-row">
+            <span class="phase-badge {{ phase_class(matter.phase) }}">{{ PHASE_LABELS.get(matter.phase, '') }}</span>
+            <span class="status-badge {{ matter_status_class(matter.status) }} lg">{{ STATUS_LABELS.get(matter.status, matter.status) }}</span>
+            <span class="hitl-badge {{ hitl_class(matter.hitl_status) }}">{{ HITL_LABELS.get(matter.hitl_status, '') }}</span>
+          </div>
+        </div>
+      </div>
+      <div class="mh-row mt-16">
+        <div class="mh-field">
+          <div class="mh-field-label">Practice Area</div>
+          <div class="mh-field-value">{{ matter.practice_area }}</div>
+        </div>
+        <div class="mh-field">
+          <div class="mh-field-label">Matter Type</div>
+          <div class="mh-field-value">{{ matter.matter_type }}</div>
+        </div>
+        <div class="mh-field">
+          <div class="mh-field-label">Confidence (PA / MT)</div>
+          <div class="mh-field-value mono">
+            {% if matter.confidence_practice_area %}
+              {{ (matter.confidence_practice_area * 100)|int }}% /
+              {{ (matter.confidence_matter_type * 100)|int if matter.confidence_matter_type else '—' }}%
+            {% else %}—{% endif %}
+          </div>
+        </div>
+        <div class="mh-field">
+          <div class="mh-field-label">Fee Estimate</div>
+          <div class="mh-field-value amber mono">{{ matter.fee_estimate or '—' }}</div>
+        </div>
+        <div class="mh-field">
+          <div class="mh-field-label">Conflict Check</div>
+          <div class="mh-field-value">
+            {% if matter.conflict_check_status == 'clear' %}
+              <span class="check-icon teal">✓</span> Clear
+            {% elif matter.conflict_check_status == 'flagged' %}
+              <span class="check-icon crimson">✗</span> Flagged
+            {% else %}
+              <span class="text-muted">Pending</span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+      {% if matter.summary %}
+      <div class="mh-summary">
+        <div class="mh-field-label">Matter Summary</div>
+        <p>{{ matter.summary }}</p>
+      </div>
+      {% endif %}
+
+      {% if matter.human_action_required %}
+      <div class="hitl-alert-panel">
+        <div class="hitl-alert-icon">⚠️</div>
+        <div class="hitl-alert-body">
+          <div class="hitl-alert-label">Human Action Required</div>
+          <div class="hitl-alert-text">{{ matter.human_action_required }}</div>
+          {% if matter.human_action_at %}
+          <div class="hitl-alert-time mono text-xs text-muted">Triggered: {{ format_datetime(matter.human_action_at) }}</div>
+          {% endif %}
+        </div>
+        <form method="POST" action="{{ url_for('matter_detail', matter_id=matter.id) }}">
+          <input type="hidden" name="action" value="clear_hitl">
+          <button type="submit" class="btn btn-primary btn-sm">Mark Action Taken</button>
+        </form>
+      </div>
+      {% endif %}
+
+      {% if matter.agent_activity %}
+      <div class="agent-activity-indicator {{ agent_activity_class(matter.agent_activity) }}">
+        {{ AGENT_ACTIVITY_LABELS.get(matter.agent_activity, matter.agent_activity) }}
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Client Communications -->
+    <div class="panel" id="comms-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Client Communications</h2>
+        <span class="action-badge" id="comms-count"></span>
+      </div>
+      <div class="panel-body">
+        <div id="comms-list">
+          <div class="empty-state"><p>Loading communications…</p></div>
+        </div>
+        {% if matter.status in ["enquiry_received", "acknowledgement_sent"] %}
+        <div id="send-ack-form" style="margin-top:16px; padding-top:16px; border-top: 1px solid var(--border);">
+          <h3 style="font-size:0.9rem; margin-bottom:12px;">Send Acknowledgement Email</h3>
+          <form id="ack-form">
+            <input type="hidden" name="action_type" value="acknowledgement_sent">
+            <div style="display:grid; grid-template-columns: 1fr 1fr; gap:8px; margin-bottom:12px;">
+              <div>
+                <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:4px;">Recipient</label>
+                <input type="email" id="ack-to" class="form-input" value="{{ matter.client_email }}" style="width:100%;" required>
+              </div>
+              <div>
+                <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:4px;">Subject</label>
+                <input type="text" id="ack-subject" class="form-input" value="Acknowledgement of your enquiry — Acme Dale Legal Services" style="width:100%;">
+              </div>
+            </div>
+            <div style="margin-bottom:12px;">
+              <label style="font-size:0.8rem; color:var(--text-muted); display:block; margin-bottom:4px;">Message</label>
+              <textarea id="ack-body" class="form-input" rows="6" style="width:100%; resize:vertical;" placeholder="Acknowledgement message..."></textarea>
+            </div>
+            <div style="display:flex; gap:8px; align-items:center;">
+              <button type="submit" class="btn btn-primary btn-sm" id="ack-btn">Send Acknowledgement</button>
+              <span id="ack-status" class="text-sm" style="display:none;"></span>
+            </div>
+            <div id="ack-alert" class="flash flash-info" style="display:none; margin-top:12px;"></div>
+          </form>
+        </div>
+        {% endif %}
+
+        <!-- Process email attachments from Atlas inbox -->
+        <div id="email-attach-section" style="margin-top:16px; padding-top:16px; border-top: 1px solid var(--border);">
+          <h3 style="font-size:0.9rem; margin-bottom:8px;">&#128229; Email Attachments</h3>
+          <p style="font-size:12px; color:#666; margin-bottom:10px;">Read emails from Atlas inbox, extract and store any attachments in this matter's Drive folder.</p>
+          <div style="display:flex; gap:8px; align-items:center; margin-bottom:10px;">
+            <button type="button" id="process-attachments-btn" class="btn btn-secondary btn-sm" onclick="processEmailAttachments()">&#128229; Process Atlas Inbox</button>
+            <span id="attach-status" class="text-sm" style="display:none;"></span>
+          </div>
+          <div id="attach-results" class="text-sm" style="max-height:200px; overflow-y:auto; display:none; border:1px solid var(--border); border-radius:6px; padding:8px;"></div>
+        </div>
+
+        {% if matter.status == "statement_letter_generated" %}
+        <div id="send-statement-form" style="margin-top:16px; padding-top:16px; border-top: 1px solid var(--border);">
+          <h3 style="font-size:0.9rem; margin-bottom:12px;">Send Statement/Engagement Letter</h3>
+          <div style="margin-bottom:10px;">
+            <input type="email" id="stmt-to" class="form-input" placeholder="Recipient email" style="margin-bottom:6px; width:100%; background:#1e1e2e; border:1px solid #333; color:#e0e0e0; padding:7px; border-radius:6px;">
+            <input type="text" id="stmt-subject" class="form-input" placeholder="Subject" value="Engagement Letter" style="margin-bottom:6px; width:100%; background:#1e1e2e; border:1px solid #333; color:#e0e0e0; padding:7px; border-radius:6px;">
+            <textarea id="stmt-body" class="form-input" rows="5" placeholder="Letter body..." style="margin-bottom:6px; width:100%; background:#1e1e2e; border:1px solid #333; color:#e0e0e0; padding:7px; border-radius:6px; resize:vertical;"></textarea>
+          </div>
+          <div id="stmt-alert" class="flash flash-info" style="display:none; margin-bottom:8px;"></div>
+          <button type="button" class="btn btn-primary btn-sm" id="send-statement-btn" onclick="sendStatementLetter()">Send Statement Letter</button>
+          <span id="statement-status" class="text-sm" style="margin-left:12px;"></span>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Compliance Checklist -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">SRA Compliance Checklist</h2>
+        {% if checklist and checklist.all_checks_passed %}
+          <span class="check-icon teal lg">✓ All checks passed</span>
+        {% else %}
+          <span class="check-icon amber lg">◐ {{ compliance_passed }} / {{ compliance_total }} passed</span>
+        {% endif %}
+      </div>
+      <div class="panel-body">
+        {% if checklist %}
+        <div class="checklist-grid">
+          {# Full 9-item checklist for law firms and ABSs; trimmed for in-house legal #}
+          {% if cfg.get('org_type') == 'in_house' %}
+          {% set items = [
+            ('Conflict Check', 'conflict_check', 'conflict_check_at'),
+            ('AI Disclosure Included', 'ai_disclosure_included', None),
+            ('SRA Registration Disclosed', 'sra_registration_disclosed', None),
+            ('Insurance Disclosed', 'insurance_disclosed', None),
+            ('Data Privacy Notice Attached', 'data_privacy_notice_attached', None),
+            ('Human Review Approved', 'human_review_approved', 'human_review_approved_at')
+          ] %}
+          {% else %}
+          {% set items = [
+            ('Conflict Check', 'conflict_check', 'conflict_check_at'),
+            ('Client Care Letter Sent', 'client_care_letter_sent', 'client_care_letter_sent_at'),
+            ('AI Disclosure Included', 'ai_disclosure_included', None),
+            ('Fee Estimate Provided', 'fee_estimate_provided', None),
+            ('SRA Registration Disclosed', 'sra_registration_disclosed', None),
+            ('Insurance Disclosed', 'insurance_disclosed', None),
+            ('Complaints Procedure Included', 'complaints_procedure_included', None),
+            ('Data Privacy Notice Attached', 'data_privacy_notice_attached', None),
+            ('Human Review Approved', 'human_review_approved', 'human_review_approved_at')
+          ] %}
+          {% endif %}
+          {% for label, field, time_field in items %}
+          <div class="checklist-item {% if checklist[field] %}passed{% else %}failed{% endif %}">
+            <span class="check-icon {% if checklist[field] %}teal{% else %}crimson{% endif %}">
+              {% if checklist[field] %}✓{% else %}✗{% endif %}
+            </span>
+            <div class="checklist-text">
+              <div class="checklist-label">{{ label }}</div>
+              {% if time_field and checklist[time_field] %}
+              <div class="checklist-time mono text-xs text-muted">{{ format_datetime(checklist[time_field]) }}</div>
+              {% endif %}
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+        {% if checklist.human_review_approved_by %}
+        <div class="mt-16 text-sm">
+          <span class="text-muted">Approved by:</span>
+          <span class="mono">{{ checklist.human_review_approved_by }}</span>
+          {% if checklist.human_review_approved_at %}
+            <span class="text-muted">on</span>
+            <span class="mono">{{ format_datetime(checklist.human_review_approved_at) }}</span>
+          {% endif %}
+        </div>
+        {% endif %}
+        {% else %}
+        <div class="empty-state"><p>No compliance data yet.</p></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Client Care Letter -->
+    {% if matter.client_care_letter %}
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Client Care Letter</h2>
+        <span class="text-xs text-muted">Auto-generated SRA-compliant</span>
+      </div>
+      <div class="panel-body">
+        <div class="document-view">{{ matter.client_care_letter }}</div>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Audit Trail -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Audit Trail</h2>
+        <div class="audit-stats">
+          <span class="mono text-sm">Tokens: <span class="teal-text">{{ total_tokens|default(0)|int }}</span></span>
+          <span class="mono text-sm">Cost: <span class="amber-text">£{{ "%.4f"|format(total_cost or 0) }}</span></span>
+        </div>
+      </div>
+      <div class="panel-body no-padding">
+        {% if audit %}
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Time</th>
+              <th>Agent</th>
+              <th>Action</th>
+              <th>Detail</th>
+              <th>Tokens</th>
+              <th>Cost</th>
+              <th>Confidence</th>
+              <th>Human</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for entry in audit %}
+            <tr>
+              <td class="mono text-xs">{{ format_datetime(entry.created_at) }}</td>
+              <td class="mono text-sm teal-text">{{ entry.agent_id }}</td>
+              <td><span class="action-badge">{{ entry.action_type }}</span></td>
+              <td class="text-sm">{{ entry.detail or '—' }}</td>
+              <td class="mono text-xs">{{ entry.tokens_used or 0 }}</td>
+              <td class="mono text-xs">£{{ "%.4f"|format(entry.cost_usd or 0) }}</td>
+              <td class="mono text-xs">{% if entry.confidence_score %}{{ (entry.confidence_score * 100)|int }}%{% else %}—{% endif %}</td>
+              <td>{% if entry.human_override %}<span class="check-icon teal">✓</span>{% endif %}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+        {% else %}
+        <div class="empty-state"><p>No audit entries.</p></div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Documents (Google Drive DMS) -->
+    <div class="panel" id="dms-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Documents</h2>
+        <div class="audit-stats">
+          <a href="{{ drive_folder_url or "#" }}" id="dms-drive-folder-btn" class="btn btn-sm btn-secondary" target="_blank" rel="noopener">Drive folder</a>
+        </div>
+      </div>
+      <div class="panel-body">
+        <div id="dms-alert" class="flash flash-info" style="display:none;margin-bottom:12px;"></div>
+        <table class="data-table" id="dms-doc-table">
+          <thead>
+            <tr>
+              <th>Name</th>
+              <th>Type</th>
+              <th>Uploaded</th>
+              <th>By</th>
+              <th>Ver.</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody id="dms-doc-tbody">
+            {% for d in documents %}
+            {% if d.doc_type != 'folder' %}
+            <tr data-doc-id="{{ d.id }}">
+              <td class="text-sm">{{ d.name }}</td>
+              <td><span class="action-badge">{{ d.doc_type }}</span></td>
+              <td class="mono text-xs">{{ format_datetime(d.created_at) }}</td>
+              <td class="text-sm">{{ d.uploaded_by or '—' }}</td>
+              <td class="mono text-xs">{{ d.version or 1 }}</td>
+              <td>
+                {% if d.drive_web_link %}
+                <a href="{{ d.drive_web_link }}" class="btn btn-sm btn-secondary" target="_blank" rel="noopener">Open</a>
+                {% else %}
+                <span class="text-muted">—</span>
+                {% endif %}
+                <button type="button" class="btn btn-sm btn-secondary dms-share-btn" data-doc-id="{{ d.id }}">Share</button>
+              </td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+          </tbody>
+        </table>
+        {% if documents|rejectattr('doc_type', 'equalto', 'folder')|list|length == 0 %}
+        <p class="text-sm text-muted mt-8" id="dms-empty-hint">No documents yet — upload a file or create from a template.</p>
+        {% endif %}
+
+        <div class="mt-16">
+          <h3 class="text-sm" style="font-weight:600;margin-bottom:8px;">Upload</h3>
+          <form id="dms-upload-form" class="dms-form-row">
+            <input type="file" name="file" id="dms-file" class="form-input" required />
+            <select name="doc_type" id="dms-doc-type" class="form-select" required>
+              <option value="">Type…</option>
+              <option value="intake">Intake</option>
+              <option value="draft">Draft</option>
+              <option value="reviewed">Reviewed</option>
+              <option value="final">Final</option>
+              <option value="correspondence">Correspondence</option>
+              <option value="precedent">Precedent</option>
+              <option value="other">Other</option>
+            </select>
+            <input type="text" name="description" id="dms-desc" class="form-input" placeholder="Description (optional)" />
+            <button type="submit" class="btn btn-primary" id="dms-upload-btn">Upload</button>
+          </form>
+        </div>
+
+        <div class="mt-16">
+          <h3 class="text-sm" style="font-weight:600;margin-bottom:8px;">From template</h3>
+          <form id="dms-template-form" class="dms-form-row">
+            <select id="dms-template-select" class="form-select" required>
+              <option value="">Template…</option>
+              <option value="client_care_letter.txt">Client Care Letter</option>
+              <option value="nda_standard.txt">NDA (Standard)</option>
+              <option value="contract_review_rag.txt">Contract Review RAG Report</option>
+              <option value="matter_summary.txt">Matter Summary</option>
+            </select>
+            <input type="text" id="dms-template-title" class="form-input" placeholder="Document title" required />
+            <select id="dms-template-doctype" class="form-select" required>
+              <option value="draft">Draft</option>
+              <option value="final">Final</option>
+              <option value="correspondence">Correspondence</option>
+              <option value="other">Other</option>
+            </select>
+            <button type="submit" class="btn btn-secondary" id="dms-template-btn">Create</button>
+          </form>
+        </div>
+      </div>
+    </div>
+
+    <!-- Time & Billing -->
+    <div class="panel" id="billing-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Time & Billing</h2>
+        <div class="audit-stats" id="billing-summary-stats"></div>
+      </div>
+      <div class="panel-body">
+        <div id="billing-alert" class="flash flash-info" style="display:none;margin-bottom:12px;"></div>
+
+        <h3 class="text-sm" style="font-weight:600;margin-bottom:8px;">Log Time</h3>
+        <form id="time-entry-form" class="dms-form-row" style="margin-bottom:16px;">
+          <input type="text" id="te-desc" class="form-input" placeholder="Description" required style="flex:2;">
+          <input type="number" id="te-mins" class="form-input" placeholder="Minutes" required style="max-width:100px;">
+          <input type="text" id="te-agent" class="form-input" placeholder="Agent" value="AD-Intake" style="max-width:120px;">
+          <button type="submit" class="btn btn-primary btn-sm">Log</button>
+        </form>
+
+        <div id="time-entries-list"></div>
+
+        <h3 class="text-sm" style="font-weight:600;margin:16px 0 8px;">Add Disbursement</h3>
+        <form id="disbursement-form" class="dms-form-row" style="margin-bottom:16px;">
+          <input type="text" id="disb-desc" class="form-input" placeholder="Description" required style="flex:2;">
+          <input type="number" id="disb-amount" class="form-input" placeholder="Amount (pence)" required style="max-width:140px;">
+          <select id="disb-type" class="form-select" style="max-width:120px;">
+            <option value="other">Other</option>
+            <option value="filing_fee">Filing Fee</option>
+            <option value="search_fee">Search Fee</option>
+            <option value="counsel">Counsel</option>
+          </select>
+          <button type="submit" class="btn btn-secondary btn-sm">Add</button>
+        </form>
+
+        <div id="disbursements-list"></div>
+
+        <div style="margin-top:16px;">
+          <button id="create-invoice-btn" class="btn btn-primary">Create Invoice</button>
+        </div>
+      </div>
+    </div>
+
+    <!-- Research -->
+    <div class="panel" id="research-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Legal Research</h2>
+      </div>
+      <div class="panel-body">
+        <div id="research-alert" class="flash flash-info" style="display:none;margin-bottom:12px;"></div>
+        <form id="research-form" class="dms-form-row" style="margin-bottom:16px;">
+          <input type="text" id="research-q" class="form-input" placeholder="Research question…" required style="flex:3;">
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:var(--text-secondary);white-space:nowrap;">
+            <input type="checkbox" id="research-ext" checked> BAILII
+          </label>
+          <button type="submit" class="btn btn-primary btn-sm" id="research-btn">Research</button>
+        </form>
+        <div id="research-results" style="display:none;">
+          <div class="document-view" id="research-answer" style="max-height:500px;"></div>
+          <div id="research-sources" style="margin-top:12px;"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Deadlines -->
+    <div class="panel" id="deadlines-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Deadlines</h2>
+      </div>
+      <div class="panel-body">
+        <form id="deadline-form" class="dms-form-row" style="margin-bottom:16px;">
+          <input type="text" id="dl-desc" class="form-input" placeholder="Deadline description" required style="flex:2;">
+          <input type="date" id="dl-date" class="form-input" required style="max-width:160px;">
+          <select id="dl-type" class="form-select" style="max-width:120px;">
+            <option value="internal">Internal</option>
+            <option value="court">Court</option>
+            <option value="regulatory">Regulatory</option>
+            <option value="client">Client</option>
+          </select>
+          <button type="submit" class="btn btn-secondary btn-sm">Add</button>
+        </form>
+        <div id="deadlines-list"></div>
+      </div>
+    </div>
+
+    <!-- Conflict Check -->
+    <div class="panel" id="conflict-panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Conflict Check</h2>
+      </div>
+      <div class="panel-body">
+
+        <!-- Conflict status banner -->
+        <div id="conflict-status-banner" style="display:none; margin-bottom:12px;"></div>
+
+        <!-- Resolution panel (shown when flagged) -->
+        <div id="conflict-resolution-panel" style="display:none; margin-bottom:12px; padding:12px; background:var(--bg-secondary); border-radius:6px;">
+          <div style="font-size:13px; font-weight:600; margin-bottom:8px;">Resolve Conflict</div>
+          <div style="display:flex;gap:8px;margin-bottom:8px;flex-wrap:wrap;">
+            <button id="conflict-resolve-clear" class="btn btn-sm" style="background:#1a8a6e;color:#fff;">Clear — No Conflict</button>
+            <button id="conflict-resolve-consent" class="btn btn-sm" style="background:#e67e22;color:#fff;">Consent — Conditions</button>
+            <button id="conflict-resolve-decline" class="btn btn-sm" style="background:#c0392b;color:#fff;">Decline to Act</button>
+          </div>
+          <textarea id="conflict-resolve-notes" class="form-input" rows="2" placeholder="Notes (required — explain the decision)" style="margin-bottom:8px; font-size:12px;"></textarea>
+          <input type="text" id="conflict-resolve-by" class="form-input" value="Tatum (COLP)" placeholder="Resolved by" style="margin-bottom:8px; font-size:12px;">
+          <button id="conflict-resolve-submit" class="btn btn-primary btn-sm">Submit Resolution</button>
+          <div id="conflict-resolve-result" style="margin-top:8px;font-size:12px;"></div>
+        </div>
+
+        <!-- Run conflict check -->
+        <button id="run-conflict-btn" class="btn btn-secondary btn-sm" style="margin-bottom:12px;">Run Conflict Check</button>
+        <div id="conflict-results" style="display:none;"></div>
+
+        <!-- Previous checks -->
+        {% if conflict %}
+        <div style="margin-top:12px;">
+          <h4 class="text-sm" style="font-weight:600;margin-bottom:8px;">Previous Checks</h4>
+          {% for c in conflict %}
+          <div style="display:flex;gap:10px;padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;flex-wrap:wrap;">
+            <span class="mono text-muted">{{ format_datetime(c.created_at) }}</span>
+            <span>{{ c.check_type }}</span>
+            <span class="{% if c.result == 'CLEAR' %}teal-text{% else %}crimson-text{% endif %} mono">{{ c.result }}</span>
+            {% if c.resolution %}
+              <span class="teal-text" style="font-size:11px;">→ {{ c.resolution }}</span>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+  </div>
+
+<script>
+(function () {
+  const matterId = {{ matter.id }};
+  const driveFolderUrl = {{ drive_folder_url|tojson }};
+  const defaultClientEmail = {{ (matter.client_email or '')|tojson }};
+
+  const alertEl = document.getElementById('dms-alert');
+  const tbody = document.getElementById('dms-doc-tbody');
+  const driveBtn = document.getElementById('dms-drive-folder-btn');
+  const emptyHint = document.getElementById('dms-empty-hint');
+
+  function showDmsAlert(message, kind) {
+    if (!alertEl) return;
+    alertEl.style.display = 'block';
+    alertEl.className = 'flash ' + (kind === 'error' ? 'flash-error' : kind === 'success' ? 'flash-success' : 'flash-info');
+    alertEl.textContent = message;
+  }
+
+  function rowHtml(d) {
+    const open = d.drive_web_link
+      ? '<a href="' + d.drive_web_link.replace(/"/g, '&quot;') + '" class="btn btn-sm btn-secondary" target="_blank" rel="noopener">Open</a>'
+      : '<span class="text-muted">—</span>';
+    const uploaded = d.created_at ? d.created_at.replace('T', ' ').slice(0, 16) : '—';
+    return '<tr data-doc-id="' + d.id + '">' +
+      '<td class="text-sm">' + (d.name || '').replace(/</g, '&lt;') + '</td>' +
+      '<td><span class="action-badge">' + (d.doc_type || '') + '</span></td>' +
+      '<td class="mono text-xs">' + uploaded + '</td>' +
+      '<td class="text-sm">' + (d.uploaded_by || '—').replace(/</g, '&lt;') + '</td>' +
+      '<td class="mono text-xs">' + (d.version || 1) + '</td>' +
+      '<td>' + open + ' <button type="button" class="btn btn-sm btn-secondary dms-share-btn" data-doc-id="' + d.id + '">Share</button></td>' +
+      '</tr>';
+  }
+
+  function bindShareButtons() {
+    document.querySelectorAll('.dms-share-btn').forEach(function (btn) {
+      btn.onclick = function () {
+        const id = btn.getAttribute('data-doc-id');
+        const email = window.prompt('Share with client (email)', defaultClientEmail || '');
+        if (!email || !email.trim()) return;
+        fetch('/api/documents/' + encodeURIComponent(id) + '/share', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ client_email: email.trim() })
+        }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+          .then(function (x) {
+            if (x.ok && x.j.success) showDmsAlert('Shared with ' + email.trim(), 'success');
+            else showDmsAlert(x.j.error || 'Share failed', 'error');
+          })
+          .catch(function () { showDmsAlert('Network error', 'error'); });
+      };
+    });
+  }
+
+  function renderDocs(list) {
+    if (!tbody) return;
+    tbody.innerHTML = (list || []).map(rowHtml).join('');
+    if (emptyHint) emptyHint.style.display = (list && list.length) ? 'none' : 'block';
+    bindShareButtons();
+  }
+
+  function refreshDocList() {
+    fetch('/api/matters/' + encodeURIComponent(matterId) + '/documents')
+      .then(function (r) { return r.json(); })
+      .then(function (data) { renderDocs(data.documents || []); })
+      .catch(function () { showDmsAlert('Could not refresh document list', 'error'); });
+  }
+
+  if (driveBtn) {
+    if (driveFolderUrl) driveBtn.href = driveFolderUrl;
+    driveBtn.addEventListener('click', function (e) {
+      if (driveBtn.getAttribute('href') && driveBtn.getAttribute('href') !== '#') return;
+      e.preventDefault();
+      fetch('/api/matters/' + encodeURIComponent(matterId) + '/drive-folder')
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) {
+          if (!x.ok) { showDmsAlert(x.j.error || 'Drive folder error', 'error'); return; }
+          driveBtn.href = x.j.folder_url;
+          window.open(x.j.folder_url, '_blank', 'noopener');
+        })
+        .catch(function () { showDmsAlert('Network error', 'error'); });
+    });
+  }
+
+  var uploadForm = document.getElementById('dms-upload-form');
+  if (uploadForm) {
+    uploadForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var fd = new FormData();
+      var fileInput = document.getElementById('dms-file');
+      var dt = document.getElementById('dms-doc-type');
+      var desc = document.getElementById('dms-desc');
+      if (!fileInput.files.length) { showDmsAlert('Choose a file', 'error'); return; }
+      fd.append('file', fileInput.files[0]);
+      fd.append('doc_type', dt.value);
+      fd.append('description', desc.value || '');
+      var btn = document.getElementById('dms-upload-btn');
+      btn.disabled = true;
+      fetch('/api/matters/' + encodeURIComponent(matterId) + '/documents', { method: 'POST', body: fd })
+        .then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) {
+          btn.disabled = false;
+          if (x.ok && x.j.success) {
+            showDmsAlert('Uploaded', 'success');
+            uploadForm.reset();
+            refreshDocList();
+          } else showDmsAlert(x.j.error || 'Upload failed', 'error');
+        })
+        .catch(function () { btn.disabled = false; showDmsAlert('Network error', 'error'); });
+    });
+  }
+
+  var tplForm = document.getElementById('dms-template-form');
+  if (tplForm) {
+    tplForm.addEventListener('submit', function (e) {
+      e.preventDefault();
+      var sel = document.getElementById('dms-template-select');
+      var title = document.getElementById('dms-template-title');
+      var doctype = document.getElementById('dms-template-doctype');
+      var btn = document.getElementById('dms-template-btn');
+      btn.disabled = true;
+      fetch('/api/matters/' + encodeURIComponent(matterId) + '/documents/from-template', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          template_name: sel.value,
+          title: title.value,
+          doc_type: doctype.value,
+          description: ''
+        })
+      }).then(function (r) { return r.json().then(function (j) { return { ok: r.ok, j: j }; }); })
+        .then(function (x) {
+          btn.disabled = false;
+          if (x.ok && x.j.success) {
+            showDmsAlert('Document created in Drive', 'success');
+            tplForm.reset();
+            refreshDocList();
+          } else showDmsAlert(x.j.error || 'Template create failed', 'error');
+        })
+        .catch(function () { btn.disabled = false; showDmsAlert('Network error', 'error'); });
+    });
+  }
+
+  bindShareButtons();
+  refreshDocList();
+
+  // ─── Client Communications ─────────────────────────────────
+  const COMMS_TYPE_LABELS = {
+    'acknowledgement_sent':     'Acknowledgement Email',
+    'statement_letter_generated': 'Statement Letter (Drafted)',
+    'statement_letter_sent':    'Statement Letter (Sent)',
+    'client_accepted':         'Client Accepted Engagement',
+    'client_declined':         'Client Declined',
+    'email_sent':               'Email Sent',
+    'email_received':          'Email Received',
+  };
+  const COMMS_BADGE_CLASS = {
+    'acknowledgement_sent':     'status-amber',
+    'statement_letter_generated': 'status-blue',
+    'statement_letter_sent':    'status-teal',
+    'client_accepted':         'status-teal',
+    'client_declined':         'status-crimson',
+    'email_sent':              'status-blue',
+    'email_received':           'status-blue',
+  };
+
+  function commBadge(action_type) {
+    return '<span class="action-badge ' + (COMMS_BADGE_CLASS[action_type] || '') + '">' + 
+           (COMMS_TYPE_LABELS[action_type] || action_type) + '</span>';
+  }
+
+  // ─── Statement Letter ─────────────────────────────────────
+  function sendStatementLetter() {
+    var btn = document.getElementById('send-statement-btn');
+    if (!btn) return;
+    var subject = document.getElementById('stmt-subject') ? document.getElementById('stmt-subject').value : '';
+    var bodyText = document.getElementById('stmt-body') ? document.getElementById('stmt-body').value : '';
+    var toEmail = document.getElementById('stmt-to') ? document.getElementById('stmt-to').value : '';
+    var alertEl = document.getElementById('stmt-alert') || {style:{display:'block'},className:'',textContent:''};
+    btn.disabled = true;
+    btn.textContent = 'Sending…';
+    fetch('/api/matters/' + encodeURIComponent(matterId) + '/statement-letter', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({
+        subject: subject || 'Engagement Letter',
+        body_text: bodyText,
+        recipient_email: toEmail,
+        recipient_name: document.querySelector('.mh-client') ? document.querySelector('.mh-client').textContent : ''
+      })
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      btn.disabled = false;
+      btn.textContent = 'Send Statement Letter';
+      var alertBox = document.getElementById('stmt-alert');
+      if (!alertBox) return;
+      alertBox.style.display = 'block';
+      if (d.status === 'ok') {
+        alertBox.className = 'flash flash-success';
+        alertBox.textContent = 'Statement letter sent and saved to Drive.';
+        if (document.getElementById('stmt-subject')) document.getElementById('stmt-subject').value = '';
+        if (document.getElementById('stmt-body')) document.getElementById('stmt-body').value = '';
+        loadComms();
+      } else {
+        alertBox.className = 'flash flash-error';
+        alertBox.textContent = d.error || 'Error sending statement letter.';
+      }
+    }).catch(function() {
+      btn.disabled = false;
+      btn.textContent = 'Send Statement Letter';
+    });
+  }
+
+    // ─── Process Email Attachments ──────────────────────────────────
+  function processEmailAttachments() {
+    var btn = document.getElementById('process-attachments-btn');
+    var statusEl = document.getElementById('attach-status');
+    var resultsEl = document.getElementById('attach-results');
+    if (!btn) return;
+    btn.disabled = true;
+    btn.textContent = 'Processing…';
+    statusEl.style.display = 'inline';
+    statusEl.textContent = 'Reading Atlas inbox…';
+    statusEl.className = 'text-sm text-muted';
+    resultsEl.style.display = 'none';
+    fetch('/api/matters/' + encodeURIComponent(matterId) + '/email-attachments', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({process_all: true})
+    }).then(function(r) { return r.json(); }).then(function(d) {
+      btn.disabled = false;
+      btn.textContent = 'Process Atlas Inbox';
+      statusEl.style.display = 'none';
+      if (d.error) {
+        statusEl.style.display = 'inline';
+        statusEl.textContent = 'Error: ' + d.error;
+        statusEl.className = 'text-sm crimson-text';
+        return;
+      }
+      var results = d.results || [];
+      if (!results.length) {
+        resultsEl.innerHTML = '<span class="text-muted">No emails processed.</span>';
+      } else {
+        resultsEl.innerHTML = results.map(function(r) {
+          return '<div style="padding:4px 0;border-bottom:1px solid #333;"><span class="mono" style="font-size:11px;">' + r.id + '</span> — ' + r.subject + ' <span class="action-badge">' + r.attachments_stored + ' stored</span></div>';
+        }).join('');
+      }
+      resultsEl.style.display = 'block';
+      loadComms();
+    }).catch(function(e) {
+      btn.disabled = false;
+      btn.textContent = 'Process Atlas Inbox';
+      statusEl.style.display = 'inline';
+      statusEl.textContent = 'Network error.';
+      statusEl.className = 'text-sm crimson-text';
+    });
+  }
+
+  function loadComms() {
+    fetch('/api/matters/' + encodeURIComponent(matterId) + '/communications')
+      .then(function(r) { return r.json(); })
+      .then(function(data) {
+        var list = document.getElementById('comms-list');
+        var count = document.getElementById('comms-count');
+        var entries = data.communications || [];
+        count.textContent = entries.length + ' communication' + (entries.length !== 1 ? 's' : '');
+        if (!entries.length) {
+          list.innerHTML = '<div class="empty-state"><p>No client communications logged yet.</p></div>';
+          return;
+        }
+        var html = '<table class="data-table"><thead><tr><th>Date</th><th>Type</th><th>Detail</th><th>Agent</th></tr></thead><tbody>';
+        entries.forEach(function(e) {
+          var detail = e.detail || '—';
+          // If detail contains email fields, display nicely
+          if (detail.indexOf('|') > 0) {
+            var parts = detail.split('|');
+            detail = '<strong>' + (parts[0] || '') + '</strong> → ' + (parts[1] || '');
+          }
+          html += '<tr>' +
+            '<td class="mono text-xs">' + (e.created_at ? e.created_at.slice(0, 16).replace('T', ' ') : '—') + '</td>' +
+            '<td>' + commBadge(e.action_type) + '</td>' +
+            '<td class="text-sm">' + detail + '</td>' +
+            '<td class="mono text-xs teal-text">' + (e.agent_id || '—') + '</td>' +
+            '</tr>';
+        });
+        html += '</tbody></table>';
+        list.innerHTML = html;
+      })
+      .catch(function() {
+        document.getElementById('comms-list').innerHTML = '<div class="empty-state"><p>Could not load communications.</p></div>';
+      });
+  }
+
+  // Acknowledgement form submission
+  var ackForm = document.getElementById('ack-form');
+  if (ackForm) {
+    ackForm.addEventListener('submit', function(e) {
+      e.preventDefault();
+      var to = document.getElementById('ack-to').value;
+      var subject = document.getElementById('ack-subject').value;
+      var body = document.getElementById('ack-body').value;
+      var btn = document.getElementById('ack-btn');
+      var status = document.getElementById('ack-status');
+      var alert = document.getElementById('ack-alert');
+      if (!to || !subject || !body) { alert.textContent = 'Fill all fields'; alert.className = 'flash flash-error'; alert.style.display = 'block'; return; }
+      btn.disabled = true;
+      status.textContent = 'Sending…';
+      fetch('/api/matters/' + encodeURIComponent(matterId) + '/communications', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action_type: 'acknowledgement_sent', detail: to + ' | ' + subject + ' | Sent' })
+      }).then(function(r) { return r.json(); })
+        .then(function(x) {
+          btn.disabled = false;
+          status.textContent = x.status === 'ok' ? '✓ Logged' : 'Error';
+          if (x.status === 'ok') {
+            alert.textContent = 'Acknowledgement sent to ' + to + ' and logged.';
+            alert.className = 'flash flash-success';
+            alert.style.display = 'block';
+            ackForm.style.display = 'none';
+            loadComms();
+          } else {
+            alert.textContent = x.error || 'Error logging acknowledgement';
+            alert.className = 'flash flash-error';
+            alert.style.display = 'block';
+          }
+        })
+        .catch(function() { btn.disabled = false; status.textContent = 'Error'; });
+    });
+  }
+
+  loadComms();
+
+  // ─── Time & Billing ───────────────────────────────────────
+  function loadBilling() {
+    fetch('/api/matters/' + encodeURIComponent(matterId) + '/time')
+      .then(r => r.json())
+      .then(data => {
+        const stats = document.getElementById('billing-summary-stats');
+        const s = data.summary || {};
+        stats.innerHTML = '<span class="mono text-sm">Fees: <span class="teal-text">£' + ((s.total_fees||0)/100).toFixed(2) + '</span></span>' +
+          '<span class="mono text-sm">Disb: <span class="amber-text">£' + ((s.total_disbursements||0)/100).toFixed(2) + '</span></span>' +
+          '<span class="mono text-sm">Total: <span class="text-primary">£' + ((s.total_due||0)/100).toFixed(2) + '</span></span>';
+        const list = document.getElementById('time-entries-list');
+        if (data.entries && data.entries.length) {
+          list.innerHTML = '<table class="data-table"><thead><tr><th>Date</th><th>Agent</th><th>Description</th><th>Mins</th><th>Fee</th><th>Status</th></tr></thead><tbody>' +
+            data.entries.map(e => '<tr><td class="mono text-xs">' + (e.entry_date||'') + '</td><td class="mono text-xs teal-text">' + (e.agent_id||'') +
+              '</td><td class="text-sm">' + (e.description||'') + '</td><td class="mono text-xs">' + (e.duration_minutes||0) +
+              '</td><td class="mono text-xs">£' + ((e.fee_amount||0)/100).toFixed(2) + '</td><td><span class="action-badge">' + (e.billing_status||'') + '</span></td></tr>').join('') +
+            '</tbody></table>';
+        } else { list.innerHTML = '<p class="text-sm text-muted">No time entries.</p>'; }
+      });
+    fetch('/api/matters/' + encodeURIComponent(matterId) + '/disbursements')
+      .then(r => r.json())
+      .then(data => {
+        const list = document.getElementById('disbursements-list');
+        if (data && data.length) {
+          list.innerHTML = '<table class="data-table"><thead><tr><th>Description</th><th>Amount</th><th>Type</th></tr></thead><tbody>' +
+            data.map(d => '<tr><td class="text-sm">' + (d.description||'') + '</td><td class="mono text-xs">£' + ((d.amount||0)/100).toFixed(2) +
+              '</td><td><span class="action-badge">' + (d.disbursement_type||'') + '</span></td></tr>').join('') +
+            '</tbody></table>';
+        }
+      });
+  }
+  loadBilling();
+
+  document.getElementById('time-entry-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    fetch('/api/matters/' + encodeURIComponent(matterId) + '/time', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({description: document.getElementById('te-desc').value, duration_minutes: parseInt(document.getElementById('te-mins').value), agent_id: document.getElementById('te-agent').value})
+    }).then(r => r.json()).then(() => { this.reset(); document.getElementById('te-agent').value='AD-Intake'; loadBilling(); });
+  });
+
+  document.getElementById('disbursement-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    fetch('/api/matters/' + encodeURIComponent(matterId) + '/disbursements', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({description: document.getElementById('disb-desc').value, amount: parseInt(document.getElementById('disb-amount').value), type: document.getElementById('disb-type').value})
+    }).then(r => r.json()).then(() => { this.reset(); loadBilling(); });
+  });
+
+  document.getElementById('create-invoice-btn').addEventListener('click', function() {
+    if (!confirm('Create a draft invoice for all unbilled time?')) return;
+    this.disabled = true;
+    fetch('/api/matters/' + encodeURIComponent(matterId) + '/invoices', {method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({})})
+      .then(r => r.json()).then(d => { this.disabled=false; alert(d.id ? 'Invoice created: ' + d.id : (d.error||'Error')); loadBilling(); })
+      .catch(() => { this.disabled=false; });
+  });
+
+  // ─── Research ─────────────────────────────────────────────
+  document.getElementById('research-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    const btn = document.getElementById('research-btn');
+    btn.disabled = true; btn.textContent = 'Researching…';
+    fetch('/api/matters/' + encodeURIComponent(matterId) + '/research', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({query: document.getElementById('research-q').value, use_bailii: !!document.getElementById('research-ext').checked})
+    }).then(r => r.json()).then(data => {
+      btn.disabled = false; btn.textContent = 'Research';
+      document.getElementById('research-results').style.display = 'block';
+      document.getElementById('research-answer').textContent = (data.results && data.results[0] ? data.results.map(r => r.title + ': ' + r.snippet).join('\n') : data.error || 'No results found');
+      const src = document.getElementById('research-sources');
+      let html = '';
+      if (data.sources && data.sources.bailii && data.sources.bailii.length) {
+        html += '<h4 class="text-sm" style="font-weight:600;margin-bottom:4px;">BAILII Sources</h4>';
+        data.sources.bailii.forEach(s => { if (s.title) html += '<div class="text-xs" style="margin-bottom:4px;"><a href="' + (s.url||'#') + '" target="_blank" style="color:var(--teal);">' + s.title + '</a></div>'; });
+      }
+      src.innerHTML = html;
+    }).catch(() => { btn.disabled=false; btn.textContent='Research'; });
+  });
+
+  // ─── Deadlines ────────────────────────────────────────────
+  function loadDeadlines() {
+    fetch('/api/matters/' + encodeURIComponent(matterId) + '/deadlines')
+      .then(r => r.json()).then(data => {
+        const list = document.getElementById('deadlines-list');
+        if (data && data.length) {
+          list.innerHTML = '<table class="data-table"><thead><tr><th>Date</th><th>Description</th><th>Type</th><th>Status</th></tr></thead><tbody>' +
+            (Array.isArray(data) ? data : (data.deadlines||[])).map(d => {
+              const isPast = d.deadline_date < new Date().toISOString().slice(0,10);
+              return '<tr><td class="mono text-xs ' + (isPast && d.status==='pending' ? 'crimson-text' : '') + '">' + (d.deadline_date||'') +
+                '</td><td class="text-sm">' + (d.description||'') +
+                '</td><td><span class="action-badge">' + (d.deadline_type||'') + '</span></td>' +
+                '<td><span class="status-badge ' + (d.status==='pending' ? (isPast?'status-crimson':'status-amber') : 'status-teal') + '">' + d.status + '</span></td></tr>';
+            }).join('') + '</tbody></table>';
+        } else { list.innerHTML = '<p class="text-sm text-muted">No deadlines set.</p>'; }
+      });
+  }
+  loadDeadlines();
+
+  document.getElementById('deadline-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+    fetch('/api/matters/' + encodeURIComponent(matterId) + '/deadlines', {
+      method: 'POST', headers: {'Content-Type':'application/json'},
+      body: JSON.stringify({description: document.getElementById('dl-desc').value, deadline_date: document.getElementById('dl-date').value, deadline_type: document.getElementById('dl-type').value})
+    }).then(r => r.json()).then(() => { this.reset(); loadDeadlines(); });
+  });
+
+  // ─── Conflict Check ──────────────────────────────────────
+  document.getElementById('run-conflict-btn').addEventListener('click', function() {
+    this.disabled = true; this.textContent = 'Checking…';
+    fetch('/api/matters/' + encodeURIComponent(matterId) + '/conflict-check', {method:'POST'})
+      .then(r => r.json()).then(data => {
+        this.disabled = false; this.textContent = 'Run Conflict Check';
+        const el = document.getElementById('conflict-results');
+        el.style.display = 'block';
+        if (data.has_conflicts) {
+          el.innerHTML = '<div class="flash flash-error">Conflicts found (' + data.conflicts.length + ')</div>' +
+            data.conflicts.map(c => '<div style="padding:6px 0;border-bottom:1px solid var(--border);font-size:12px;"><span class="crimson-text mono">' + c.type + '</span> — ' + (c.name||c.client_name||c.ref||c.id) + '</div>').join('');
+        } else {
+          el.innerHTML = '<div class="flash flash-success">No conflicts found — all clear.</div>';
+        }
+      }).catch(() => { this.disabled=false; this.textContent='Run Conflict Check'; });
+  });
+
+  // ── Conflict Resolution ──────────────────────────────────────────────
+
+  // Show conflict status banner based on matter state
+  (function initConflictUI() {
+    const matterStatus = {{ (matter.conflict_check_status or '')|tojson }};
+    const hitlStatus = {{ (matter.hitl_status or '')|tojson }};
+    const banner = document.getElementById('conflict-status-banner');
+    const resolutionPanel = document.getElementById('conflict-resolution-panel');
+    const runBtn = document.getElementById('run-conflict-btn');
+
+    if (matterStatus === 'flagged' || hitlStatus === 'conflict_review') {
+      banner.innerHTML = '<div class="flash flash-error">⚠ Conflict found — matter on hold. Resolve below.</div>';
+      banner.style.display = 'block';
+      if (resolutionPanel) resolutionPanel.style.display = 'block';
+      if (runBtn) runBtn.style.display = 'none';
+    } else if (matterStatus === 'clear') {
+      banner.innerHTML = '<div class="flash flash-success">✓ Conflict check cleared</div>';
+      banner.style.display = 'block';
+    }
+  })();
+
+  // Bind resolution buttons
+  function resolveConflict(resolution) {
+    const notes = (document.getElementById('conflict-resolve-notes') || {}).value || '';
+    const resolvedBy = (document.getElementById('conflict-resolve-by') || {}).value || 'Tatum (COLP)';
+    const resultEl = document.getElementById('conflict-resolve-result');
+    if (!notes.trim() && (resolution === 'clear' || resolution === 'consent')) {
+      resultEl.innerHTML = '<span class="crimson-text">Notes are required — explain your decision.</span>';
+      return;
+    }
+    resultEl.innerHTML = 'Submitting...';
+    fetch('/api/matters/' + encodeURIComponent(matterId) + '/conflict-resolve', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ resolution: resolution, notes: notes, resolved_by: resolvedBy })
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(data) {
+      if (data.status === 'ok') {
+        resultEl.innerHTML = '<span class="teal-text">✓ Resolved as ' + resolution.toUpperCase() + '</span>';
+        setTimeout(function() { window.location.reload(); }, 1500);
+      } else {
+        resultEl.innerHTML = '<span class="crimson-text">Error: ' + (data.error || 'Unknown error') + '</span>';
+      }
+    })
+    .catch(function() { resultEl.innerHTML = '<span class="crimson-text">Network error.</span>'; });
+  }
+
+  ['clear','consent','decline'].forEach(function(res) {
+    var btn = document.getElementById('conflict-resolve-' + res);
+    if (btn) btn.addEventListener('click', function() { resolveConflict(res); });
+  });
+
+})();
+</script>
+
+  <!-- Right sidebar -->
+  <div class="matter-sidebar">
+
+    <!-- Review actions -->
+    {% if matter.status == 'review' %}
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">AD-Review Decision</h2>
+      </div>
+      <div class="panel-body">
+        <form method="POST">
+          <input type="hidden" name="action" value="approve">
+          <div class="form-group">
+            <label class="form-label">Notes (optional)</label>
+            <textarea name="notes" class="form-textarea" placeholder="Approval notes..."></textarea>
+          </div>
+          <button type="submit" class="btn btn-success btn-block">✓ Approve & Send to Client</button>
+        </form>
+        <form method="POST" class="mt-8">
+          <input type="hidden" name="action" value="reject">
+          <div class="form-group">
+            <textarea name="notes" class="form-textarea" placeholder="Rejection reason — what needs rework?"></textarea>
+          </div>
+          <button type="submit" class="btn btn-danger btn-block">✗ Return to Intake</button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Notes -->
+    {% if matter.notes %}
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Notes</h2>
+      </div>
+      <div class="panel-body">
+        <p class="text-sm">{{ matter.notes }}</p>
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- AI Disclosure -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">AI Disclosure Footer</h2>
+      </div>
+      <div class="panel-body">
+        <div class="ai-disclosure">
+          <p>This document was prepared with the assistance of AI legal technology operated by {{ cfg.firm_name }}. All AI outputs are reviewed by a qualified solicitor before being sent to you.</p>
+          <p>{{ cfg.firm_name }} is authorised and regulated by the Solicitors Regulation Authority (SRA No: {{ cfg.sra_number }}).</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Mark as Precedent -->
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Precedent</h2>
+      </div>
+      <div class="panel-body">
+        <div id="precedent-alert" class="flash flash-info" style="display:none;margin-bottom:8px;"></div>
+        <form id="precedent-form">
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label">Summary</label>
+            <textarea id="prec-summary" class="form-textarea" placeholder="Precedent summary…" style="min-height:60px;"></textarea>
+          </div>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label">Outcome</label>
+            <input type="text" id="prec-outcome" class="form-input" placeholder="Matter outcome">
+          </div>
+          <div class="form-group" style="margin-bottom:8px;">
+            <label class="form-label">Key Lessons</label>
+            <textarea id="prec-lessons" class="form-textarea" placeholder="Key lessons learned…" style="min-height:60px;"></textarea>
+          </div>
+          <button type="submit" class="btn btn-secondary btn-block btn-sm">Mark as Precedent</button>
+        </form>
+        <script>
+        document.getElementById('precedent-form').addEventListener('submit', function(e) {
+          e.preventDefault();
+          var btn = this.querySelector('button[type=submit]');
+          btn.disabled = true;
+          fetch('/api/matters/' + {{ matter.id|tojson }} + '/precedent', {
+            method: 'POST', headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({summary: document.getElementById('prec-summary').value, outcome: document.getElementById('prec-outcome').value, key_lessons: document.getElementById('prec-lessons').value, rag_summary: ''})
+          }).then(function(r){return r.json();}).then(function(d) {
+            btn.disabled = false;
+            var a = document.getElementById('precedent-alert');
+            a.style.display = 'block';
+            if (d.status === 'ok') { a.className='flash flash-success'; a.textContent='Saved as precedent.'; }
+            else { a.className='flash flash-error'; a.textContent=d.error||'Error'; }
+          }).catch(function(){btn.disabled=false;});
+        });
+        </script>
+      </div>
+    </div>
+
+    <!-- Matter meta -->
+    <div class="panel">
+      <div class="panel-header"><h2 class="panel-title">Matter Details</h2></div>
+      <div class="panel-body">
+        <div class="meta-grid">
+          <div class="meta-item">
+            <div class="meta-label">Created</div>
+            <div class="meta-value mono text-sm">{{ format_datetime(matter.created_at) }}</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Updated</div>
+            <div class="meta-value mono text-sm">{{ format_datetime(matter.updated_at) }}</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Matter ID</div>
+            <div class="meta-value mono text-sm">{{ matter.id }}</div>
+          </div>
+          <div class="meta-item">
+            <div class="meta-label">Client ID</div>
+            <div class="meta-value mono text-sm">{{ matter.client_id or '—' }}</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

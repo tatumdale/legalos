@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{{ skill.name }} — Legal Skills</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body { background: #0d0d17; color: #c0c0c0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; font-size: 14px; line-height: 1.6; }
+a { color: #60a5fa; text-decoration: none; }
+a:hover { text-decoration: underline; }
+.back-link { display: inline-block; margin: 20px 0 0 24px; color: #555; font-size: 13px; }
+.container { max-width: 960px; margin: 0 auto; padding: 20px 24px 60px; }
+.skill-header { display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 16px; margin-bottom: 24px; padding-bottom: 20px; border-bottom: 1px solid #1e1e30; }
+.skill-header h1 { font-size: 22px; font-weight: 700; color: #e0e0e0; margin-bottom: 6px; }
+.skill-header .desc { color: #777; font-size: 14px; line-height: 1.65; max-width: 640px; margin-bottom: 12px; }
+.badges { display: flex; gap: 8px; flex-wrap: wrap; }
+.badge { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border-radius: 20px; font-size: 11px; font-weight: 600; }
+.b-pa { background: #1e3a2e; color: #4ade80; }
+.b-sv { background: #1e2e3a; color: #60a5fa; }
+.b-tier { background: #2e2e1a; color: #facc15; }
+.b-mt { background: #2e1e2e; color: #e879f9; }
+.b-auto { background: #1e3a2e; color: #4ade80; }
+.b-man { background: #2e1e1e; color: #e879f9; }
+.b-active { background: #1e3a2e; color: #4ade80; }
+.b-inactive { background: #3a1e1e; color: #f87171; }
+.header-meta { text-align: right; font-size: 12px; color: #444; white-space: nowrap; }
+.header-meta .slug { color: #555; font-family: monospace; font-size: 11px; }
+.header-meta .date { margin-top: 4px; }
+.cat-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 10px; margin-bottom: 28px; }
+.cat-card { background: #141420; border: 1px solid #222; border-radius: 8px; padding: 12px; text-align: center; }
+.cat-label { font-size: 10px; color: #444; text-transform: uppercase; letter-spacing: 0.08em; margin-bottom: 6px; }
+.cat-value { font-size: 14px; font-weight: 600; }
+.when-to-use { background: #141e1a; border: 1px solid #1e3a2a; border-radius: 10px; padding: 16px 20px; margin-bottom: 28px; }
+.when-to-use h3 { color: #4ade80; font-size: 13px; font-weight: 600; margin-bottom: 8px; }
+.when-to-use p { color: #b0b0b0; font-size: 13px; line-height: 1.75; margin: 0; }
+.section-title { color: #e0e0e0; font-size: 15px; font-weight: 600; margin-bottom: 4px; }
+.section-sub { color: #444; font-size: 12px; margin-bottom: 16px; }
+.md-section { margin-bottom: 32px; background: #141420; border: 1px solid #1e1e30; border-radius: 10px; overflow: hidden; }
+.md-section h3 { color: #e0e0e0; font-size: 15px; font-weight: 600; padding: 14px 20px 12px; border-bottom: 1px solid #1e1e30; background: #18182a; }
+.md-section .md-body { padding: 16px 20px; }
+.md-section h4 { color: #c0c0c0; font-size: 13px; font-weight: 600; margin: 16px 0 8px; }
+.md-section h5 { color: #a0a0a0; font-size: 12px; font-weight: 600; margin: 12px 0 6px; text-transform: uppercase; letter-spacing: 0.05em; }
+.md-section p { color: #b0b0b0; font-size: 13px; line-height: 1.75; margin: 0 0 10px; }
+.md-section ul, .md-section ol { margin: 0 0 12px; padding-left: 22px; }
+.md-section li { color: #b0b0b0; font-size: 13px; line-height: 1.7; margin-bottom: 4px; }
+.md-section strong { color: #d0d0d0; font-weight: 600; }
+.md-section hr { border: none; border-top: 1px solid #1e1e30; margin: 16px 0; }
+table { width: 100%; border-collapse: collapse; margin: 12px 0; font-size: 12px; }
+td, th { padding: 6px 10px; border: 1px solid #222; color: #b0b0b0; }
+th { background: #18182a; color: #888; font-weight: 600; text-align: left; }
+.step-card { background: #141420; border: 1px solid #1e1e30; border-radius: 10px; padding: 16px; margin-bottom: 12px; }
+.step-header { display: flex; align-items: flex-start; gap: 10px; margin-bottom: 8px; }
+.step-num { color: #333; font-size: 12px; font-weight: 700; min-width: 24px; padding-top: 2px; }
+.step-badge { display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 20px; font-size: 10px; font-weight: 600; white-space: nowrap; }
+.bsubskill { background: #1e3a2e; color: #4ade80; }
+.bintegr { background: #1e2e3a; color: #60a5fa; }
+.btempl { background: #2e2e1a; color: #facc15; }
+.bmanual { background: #2e1e2e; color: #e879f9; }
+.step-title { font-size: 14px; font-weight: 600; color: #d0d0d0; flex: 1; }
+.step-desc { color: #777; font-size: 12px; line-height: 1.6; margin-bottom: 10px; }
+.step-meta { display: flex; flex-direction: column; gap: 5px; }
+.step-meta-row { display: flex; align-items: flex-start; gap: 10px; font-size: 12px; }
+.step-meta-label { color: #444; min-width: 100px; }
+.step-meta-val { color: #a0a0a0; flex: 1; }
+.ci-tag { background: #1e2e3e; color: #60a5fa; padding: 2px 7px; border-radius: 4px; font-size: 10px; }
+.step-notes { background: #0d0d1a; border-left: 3px solid #2a2a4a; padding: 8px 12px; border-radius: 0 6px 6px 0; margin-top: 8px; }
+.step-notes pre { margin: 0; color: #888; font-size: 11px; font-family: 'SF Mono', Menlo, monospace; white-space: pre-wrap; word-break: break-word; line-height: 1.65; }
+.no-steps { background: #141420; border: 1px solid #1e1e30; border-radius: 10px; padding: 32px; text-align: center; color: #333; }
+.no-steps .icon { font-size: 24px; margin-bottom: 8px; }
+.raw-block { background: #0d0d1a; border: 1px solid #1e1e30; border-radius: 8px; margin-bottom: 24px; }
+.raw-block summary { padding: 10px 16px; cursor: pointer; color: #444; font-size: 12px; user-select: none; border-bottom: 1px solid #1e1e30; }
+.raw-block pre { padding: 14px; color: #666; font-size: 11px; font-family: 'SF Mono', Menlo, monospace; white-space: pre-wrap; word-break: break-all; max-height: 350px; overflow-y: auto; margin: 0; }
+.footer { text-align: right; margin-top: 24px; padding-top: 16px; border-top: 1px solid #1e1e30; }
+.btn { display: inline-flex; align-items: center; gap: 6px; padding: 7px 14px; border-radius: 6px; font-size: 12px; font-weight: 500; cursor: pointer; border: none; text-decoration: none; }
+.btn-sm { padding: 5px 10px; font-size: 11px; }
+.btn-secondary { background: #1e1e30; color: #888; border: 1px solid #2a2a4a; }
+.btn-secondary:hover { background: #2a2a4a; color: #aaa; text-decoration: none; }
+</style>
+</head>
+<body>
+<a class="back-link" href="/skills">&#8592; Back to Legal Skills</a>
+
+<div class="container">
+
+  <!-- Header -->
+  <div class="skill-header">
+    <div>
+      <h1>{{ skill.name }}</h1>
+      <p class="desc">{{ skill.description }}</p>
+      <div class="badges">
+        {% if skill.practice_area %}<span class="badge b-pa">{{ skill.practice_area }}</span>{% endif %}
+        {% if skill.service_line %}<span class="badge b-sv">{{ skill.service_line }}</span>{% endif %}
+        {% if skill.tier %}<span class="badge b-tier">{{ skill.tier }}</span>{% endif %}
+        {% if skill.matter_type %}<span class="badge b-mt">{{ skill.matter_type }}</span>{% endif %}
+        {% if skill.automated %}<span class="badge b-auto">&#9889; Automated</span>
+        {% else %}<span class="badge b-man">&#128100; Human-Assisted</span>{% endif %}
+        {% if skill.is_active == 0 %}<span class="badge b-inactive">&#9898; Inactive</span>{% endif %}
+      </div>
+    </div>
+    <div class="header-meta">
+      <div class="slug">{{ skill.slug or skill.id }}</div>
+      <div class="date">{{ format_datetime(skill.created_at) if skill.created_at else '—' }}</div>
+    </div>
+  </div>
+
+  <!-- Classification grid -->
+  <div class="cat-grid">
+    <div class="cat-card"><div class="cat-label">Practice Area</div><div class="cat-value" style="color:#4ade80;">{{ skill.practice_area or '—' }}</div></div>
+    <div class="cat-card"><div class="cat-label">Service Line</div><div class="cat-value" style="color:#60a5fa;">{{ skill.service_line or '—' }}</div></div>
+    <div class="cat-card"><div class="cat-label">Tier</div><div class="cat-value" style="color:#facc15;">{{ skill.tier or 'All' }}</div></div>
+    <div class="cat-card"><div class="cat-label">Matter Type</div><div class="cat-value" style="color:#e879f9;">{{ skill.matter_type or 'General' }}</div></div>
+  </div>
+
+  <!-- When to Use -->
+  {% if skill.trigger %}
+  <div class="when-to-use">
+    <h3>&#9889; When to Use This Skill</h3>
+    <p>{{ skill.trigger }}</p>
+  </div>
+  {% endif %}
+
+  <!-- SKILL.md content — each section is a collapsible card -->
+  {% if skill_file_sections %}
+  <div style="margin-bottom:32px;">
+    <h2 class="section-title">Skill Methodology &amp; Knowledge Base</h2>
+    <p class="section-sub">How this skill works — legal framework, methodology, quality standards, and escalation rules</p>
+    {% for sec_title, sec_html in skill_file_sections %}
+    <div class="md-section">
+      <h3>{{ sec_title }}</h3>
+      <div class="md-body">{{ sec_html|safe }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% elif skill_file %}
+  <div class="raw-block">
+    <h2 class="section-title" style="padding:14px 20px 12px;border-bottom:1px solid #1e1e30;background:#18182a;">SKILL.md Content</h2>
+    <pre>{{ skill_file[:4000] }}</pre>
+  </div>
+  {% endif %}
+
+  <!-- Workflow Steps -->
+  {% if steps and steps|length > 0 %}
+  <div style="margin-bottom:32px;">
+    <h2 class="section-title">Execution Steps</h2>
+    <p class="section-sub">{{ steps|length }} steps — how the agent completes each stage of this skill</p>
+    {{ steps_html|safe }}
+  </div>
+  {% else %}
+  <div class="no-steps" style="margin-bottom:28px;">
+    <div class="icon">&#128221;</div>
+    <div style="font-size:14px;margin-bottom:6px;">No execution steps defined yet</div>
+    <div style="font-size:12px;color:#333;">Steps will appear here once the workflow is built out.</div>
+  </div>
+  {% endif %}
+
+  <!-- Raw SKILL.md (collapsible) -->
+  {% if skill_file and skill_file|length > 100 %}
+  <details class="raw-block">
+    <summary>&#9776; Raw SKILL.md ({{ skill_file|length }} chars)</summary>
+    <pre>{{ skill_file }}</pre>
+  </details>
+  {% endif %}
+
+  <div class="footer">
+    <a href="/skills" class="btn btn-secondary btn-sm">&#8592; Back to Skills</a>
+  </div>
+
+</div>
+</body>
+</html>

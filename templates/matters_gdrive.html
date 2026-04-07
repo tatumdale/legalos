@@ -1,0 +1,69 @@
+{% extends "base.html" %}
+{% block title %}Drive Documents — HJ Legal OS{% endblock %}
+{% block page_title %}Drive Documents{% endblock %}
+
+{% block content %}
+<div class="matter-layout">
+  <div class="matter-main" style="max-width:1100px;">
+
+    <div class="panel">
+      <div class="panel-header">
+        <h2 class="panel-title">Matter Drive Folders</h2>
+        <span class="action-badge">{{ matters|length }} matters</span>
+      </div>
+      <div class="panel-body no-padding">
+        <table class="data-table">
+          <thead>
+            <tr>
+              <th>Ref</th>
+              <th>Client</th>
+              <th>Phase</th>
+              <th>Status</th>
+              <th>Drive Folder</th>
+              <th>Actions</th>
+            </tr>
+          </thead>
+          <tbody>
+            {% for m in matters %}
+            {% set di = drive_info.get(m.id, {}) %}
+            <tr>
+              <td>
+                <a href="{{ url_for('matter_detail', matter_id=m.id) }}" class="mono">{{ m.ref }}</a>
+              </td>
+              <td>{{ m.client_name }}</td>
+              <td>
+                <span class="phase-badge {{ phase_class(m.phase) }}">{{ PHASE_LABELS.get(m.phase, m.phase) }}</span>
+              </td>
+              <td>
+                <span class="status-badge {{ matter_status_class(m.status) }}">{{ STATUS_LABELS.get(m.status, m.status) }}</span>
+              </td>
+              <td>
+                {% if di.folder_url %}
+                  <a href="{{ di.folder_url }}" target="_blank" rel="noopener" class="mono text-sm" style="color:var(--link);">
+                    Open in Drive →
+                  </a>
+                {% else %}
+                  <span class="text-muted text-sm">Not connected</span>
+                {% endif %}
+              </td>
+              <td>
+                <a href="{{ url_for('matter_gdrive', matter_id=m.id) }}" class="btn btn-sm btn-secondary">📁 View Files</a>
+                <a href="{{ url_for('matter_detail', matter_id=m.id) }}" class="btn btn-sm btn-muted">Matter</a>
+              </td>
+            </tr>
+            {% endfor %}
+            {% if not matters %}
+            <tr>
+              <td colspan="6" style="text-align:center;padding:32px;color:var(--text-muted);">
+                No matters found.
+              </td>
+            </tr>
+            {% endif %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

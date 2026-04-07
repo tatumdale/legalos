@@ -1,0 +1,481 @@
+{% extends "base.html" %}
+{% block title %}Legal Skills — HJ Legal OS{% endblock %}
+{% block page_title %}Legal Skills{% endblock %}
+
+{% block content %}
+<style>
+#skills-grid {
+  display: grid !important;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 300px)) !important;
+  gap: 16px !important;
+  padding: 0 !important;
+  width: 100% !important;
+}
+#skills-grid > .panel {
+  width: 300px !important;
+  max-width: 300px !important;
+  min-width: 300px !important;
+  flex: 0 0 300px !important;
+  box-sizing: border-box !important;
+}
+</style>
+
+
+<div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:16px;">
+  <p class="text-sm text-muted" style="margin:0;">Reusable legal workflow scripts used by the HJ agent team.</p>
+  <button onclick="openModal()" class="btn btn-primary btn-sm">+ Add Skill</button>
+</div>
+
+<!-- Filter bar -->
+<div id="filter-bar" style="background:#1a1a2e; border:1px solid #2a2a3e; border-radius:10px; padding:14px 16px; margin-bottom:20px; display:flex; gap:10px; flex-wrap:wrap; align-items:center;">
+  <!-- Status -->
+  <div style="display:flex; flex-direction:column; gap:2px;">
+    <label style="font-size:10px; color:#555; text-transform:uppercase; letter-spacing:0.5px;">Status</label>
+    <select id="f-status" onchange="renderFiltered()" style="background:#0f0f1a; border:1px solid #333; color:#e0e0e0; border-radius:6px; padding:5px 8px; font-size:12px; min-width:100px;">
+      <option value="active">Active</option>
+      <option value="inactive">Inactive</option>
+      <option value="both">Active &amp; Inactive</option>
+    </select>
+  </div>
+  <!-- Practice Area -->
+  <div style="display:flex; flex-direction:column; gap:2px;">
+    <label style="font-size:10px; color:#555; text-transform:uppercase; letter-spacing:0.5px;">Practice Area</label>
+    <select id="f-pa" onchange="renderFiltered()" style="background:#0f0f1a; border:1px solid #333; color:#e0e0e0; border-radius:6px; padding:5px 8px; font-size:12px; min-width:140px;">
+      <option value="">All Practice Areas</option>
+    </select>
+  </div>
+  <!-- Matter Type -->
+  <div style="display:flex; flex-direction:column; gap:2px;">
+    <label style="font-size:10px; color:#555; text-transform:uppercase; letter-spacing:0.5px;">Matter Type</label>
+    <select id="f-mt" onchange="renderFiltered()" style="background:#0f0f1a; border:1px solid #333; color:#e0e0e0; border-radius:6px; padding:5px 8px; font-size:12px; min-width:140px;">
+      <option value="">All Matter Types</option>
+    </select>
+  </div>
+  <!-- Service Line -->
+  <div style="display:flex; flex-direction:column; gap:2px;">
+    <label style="font-size:10px; color:#555; text-transform:uppercase; letter-spacing:0.5px;">Service Line</label>
+    <select id="f-sl" onchange="renderFiltered()" style="background:#0f0f1a; border:1px solid #333; color:#e0e0e0; border-radius:6px; padding:5px 8px; font-size:12px; min-width:130px;">
+      <option value="">All Service Lines</option>
+    </select>
+  </div>
+  <!-- Tier -->
+  <div style="display:flex; flex-direction:column; gap:2px;">
+    <label style="font-size:10px; color:#555; text-transform:uppercase; letter-spacing:0.5px;">Tier</label>
+    <select id="f-tier" onchange="renderFiltered()" style="background:#0f0f1a; border:1px solid #333; color:#e0e0e0; border-radius:6px; padding:5px 8px; font-size:12px; min-width:120px;">
+      <option value="">All Tiers</option>
+      <option value="Tier 1">Tier 1</option>
+      <option value="Tier 2">Tier 2</option>
+      <option value="Tier 3">Tier 3</option>
+    </select>
+  </div>
+  <!-- Execution -->
+  <div style="display:flex; flex-direction:column; gap:2px;">
+    <label style="font-size:10px; color:#555; text-transform:uppercase; letter-spacing:0.5px;">Execution</label>
+    <select id="f-exec" onchange="renderFiltered()" style="background:#0f0f1a; border:1px solid #333; color:#e0e0e0; border-radius:6px; padding:5px 8px; font-size:12px; min-width:150px;">
+      <option value="">All Execution</option>
+      <option value="auto">&#9889; Automated</option>
+      <option value="manual">&#128100; Human-Assisted</option>
+    </select>
+  </div>
+  <!-- Results count -->
+  <div style="margin-left:auto; display:flex; flex-direction:column; gap:2px; align-items:flex-end;">
+    <label style="font-size:10px; color:#555; text-transform:uppercase; letter-spacing:0.5px;">Showing</label>
+    <span id="filter-count" style="font-size:13px; color:#4ade80; font-weight:600; font-family:monospace;"></span>
+  </div>
+</div>
+
+<!-- Stats bar -->
+<div id="stats-bar" class="mono text-sm" style="display:flex; gap:20px; margin-bottom:16px; flex-wrap:wrap; align-items:center;"></div>
+
+<!-- Skills grid — cards pre-rendered in DOM, JS shows/hides them -->
+<div id="skills-grid" style="display:grid; grid-template-columns:repeat(auto-fill, minmax(300px, 1fr)); gap:16px;"></div>
+
+<!-- No results message -->
+<div id="no-results" style="display:none; text-align:center; padding:40px; color:#555;">
+  <p style="font-size:16px; margin-bottom:8px;">No skills match the selected filters.</p>
+  <button onclick="clearFilters()" class="btn btn-secondary btn-sm">Clear Filters</button>
+</div>
+
+<!-- Add/Edit Skill Modal -->
+<div id="skill-modal" class="modal" style="display:none; position:fixed; top:0; left:0; right:0; bottom:0; background:rgba(0,0,0,0.5); z-index:1000;">
+  <div style="background:#1a1a2e; border:1px solid #333; border-radius:12px; padding:24px; max-width:560px; margin:60px auto; max-height:80vh; overflow-y:auto;">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px;">
+      <h2 id="modal-title" style="margin:0;">Add Skill</h2>
+      <button onclick="closeModal()" style="background:none; border:none; color:#888; font-size:20px; cursor:pointer;">&#10005;</button>
+    </div>
+    <form id="skill-form">
+      <input type="hidden" id="skill-slug">
+      <div style="margin-bottom:16px;">
+        <label style="display:block; color:#aaa; font-size:12px; margin-bottom:4px;">Slug (URL name)</label>
+        <input id="f-slug" type="text" class="form-input" placeholder="e.g. contract-review" style="width:100%; background:#222; border:1px solid #333; color:#e0e0e0; padding:8px; border-radius:6px;">
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="display:block; color:#aaa; font-size:12px; margin-bottom:4px;">Name</label>
+        <input id="f-name" type="text" class="form-input" placeholder="e.g. Contract Review" style="width:100%; background:#222; border:1px solid #333; color:#e0e0e0; padding:8px; border-radius:6px;">
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="display:block; color:#aaa; font-size:12px; margin-bottom:4px;">Description</label>
+        <textarea id="f-desc" rows="3" class="form-input" placeholder="When to use this skill..." style="width:100%; background:#222; border:1px solid #333; color:#e0e0e0; padding:8px; border-radius:6px; resize:vertical;"></textarea>
+      </div>
+      <div style="display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:16px;">
+        <div>
+          <label style="display:block; color:#aaa; font-size:12px; margin-bottom:4px;">Practice Area</label>
+          <select id="f-practice-area" style="width:100%; background:#222; border:1px solid #333; color:#e0e0e0; padding:8px; border-radius:6px;">
+            <option value="">— Select —</option>
+            <option value="All PAs">All PAs (routing)</option>
+            <option value="Commercial Law">Commercial Law</option>
+            <option value="Corporate">Corporate</option>
+            <option value="Employment">Employment</option>
+            <option value="IP Law">IP Law</option>
+            <option value="Data Protection">Data Protection</option>
+            <option value="Commercial Property">Commercial Property</option>
+            <option value="Dispute Resolution">Dispute Resolution</option>
+            <option value="Banking &amp; Finance">Banking &amp; Finance</option>
+            <option value="Construction">Construction</option>
+            <option value="Business Immigration">Business Immigration</option>
+            <option value="Employee Incentives">Employee Incentives</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block; color:#aaa; font-size:12px; margin-bottom:4px;">Service Line</label>
+          <select id="f-service-line" style="width:100%; background:#222; border:1px solid #333; color:#e0e0e0; padding:8px; border-radius:6px;">
+            <option value="">— All —</option>
+            <option value="Routing">Routing (matter-classifier only)</option>
+            <option value="Drafting">Drafting</option>
+            <option value="Reviewing">Reviewing</option>
+            <option value="Negotiating">Negotiating</option>
+            <option value="Advising">Advising</option>
+            <option value="Precedents">Precedents</option>
+            <option value="All">All Service Lines</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block; color:#aaa; font-size:12px; margin-bottom:4px;">Tier</label>
+          <select id="f-tier-modal" style="width:100%; background:#222; border:1px solid #333; color:#e0e0e0; padding:8px; border-radius:6px;">
+            <option value="">— All Tiers —</option>
+            <option value="Tier 1">Tier 1 — Light / Routine</option>
+            <option value="Tier 2">Tier 2 — Standard / Bespoke</option>
+            <option value="Tier 3">Tier 3 — Complex / Strategic</option>
+            <option value="All">All Tiers</option>
+          </select>
+        </div>
+        <div>
+          <label style="display:block; color:#aaa; font-size:12px; margin-bottom:4px;">Matter Type</label>
+          <input id="f-matter-type" type="text" class="form-input" placeholder="e.g. Commercial Contracts" style="width:100%; background:#222; border:1px solid #333; color:#e0e0e0; padding:8px; border-radius:6px;">
+        </div>
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="display:block; color:#aaa; font-size:12px; margin-bottom:4px;">Trigger (when to use)</label>
+        <input id="f-trigger" type="text" class="form-input" placeholder="e.g. Client asks to review a commercial contract" style="width:100%; background:#222; border:1px solid #333; color:#e0e0e0; padding:8px; border-radius:6px;">
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="display:block; color:#aaa; font-size:12px; margin-bottom:4px;">Execution</label>
+        <select id="f-automated" style="width:100%; background:#222; border:1px solid #333; color:#e0e0e0; padding:8px; border-radius:6px;">
+          <option value="1">&#9889; Automated — agents run this skill automatically</option>
+          <option value="0">&#128100; Human-Assisted — requires human approval</option>
+        </select>
+      </div>
+      <div id="modal-error" class="flash flash-error" style="display:none; margin-bottom:12px;"></div>
+      <div style="display:flex; gap:8px; justify-content:flex-end;">
+        <button type="button" onclick="closeModal()" class="btn btn-secondary btn-sm">Cancel</button>
+        <button type="submit" class="btn btn-primary btn-sm">Save</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+// ── State ────────────────────────────────────────────────────────────────────
+var allSkills = [];
+
+// ── Load skills, build DOM cards, populate filter dropdowns ─────────────────
+async function loadSkills() {
+  var r = await fetch('/api/skills');
+  var data = await r.json();
+  allSkills = data.skills || data;
+
+  // Build filter dropdowns
+  buildFilterDropdowns();
+
+  // Render ALL skill cards to the DOM once
+  var grid = document.getElementById('skills-grid');
+  grid.innerHTML = allSkills.map(function(s) {
+    return buildCard(s);
+  }).join('');
+
+  // Initial filter
+  renderFiltered();
+}
+
+// ── Build one skill card as a string ─────────────────────────────────────────
+function buildCard(s) {
+  var slug = escHtml(s.slug || s.id || '');
+  var isActive = s.is_active !== 0;
+  var activeOp = isActive ? '1' : '0.4';
+  var badges = [];
+  if (s.tier) {
+    badges.push('<span class="action-badge" style="background:#1e1e3e; color:#a78bfa; font-size:11px;">' + escHtml(s.tier) + '</span>');
+  }
+  if (s.service_line) {
+    badges.push('<span class="action-badge" style="background:#1e2e2e; color:#4ade80; font-size:11px;">' + escHtml(s.service_line) + '</span>');
+  }
+  if (s.matter_type) {
+    badges.push('<span class="action-badge" style="font-size:11px;">' + escHtml(s.matter_type) + '</span>');
+  }
+  if (s.automated) {
+    badges.push('<span class="action-badge" style="background:#1e2e1e; color:#4ade80; font-size:11px;">&#9889; Auto</span>');
+  } else {
+    badges.push('<span class="action-badge" style="background:#2e2e1e; color:#facc15; font-size:11px;">&#128100; Manual</span>');
+  }
+  var desc = escHtml((s.description || '').slice(0, 120));
+  if ((s.description || '').length > 120) desc += '&#8230;';
+
+  // Data attributes for JS filtering
+  var dataAttrs = [
+    'data-id="' + slug + '"',
+    'data-pa="' + escHtml(s.practice_area || '') + '"',
+    'data-mt="' + escHtml(s.matter_type || '') + '"',
+    'data-sl="' + escHtml(s.service_line || '') + '"',
+    'data-tier="' + escHtml(s.tier || '') + '"',
+    'data-automated="' + (s.automated ? '1' : '0') + '"',
+    'data-active="' + (isActive ? '1' : '0') + '"',
+  ].join(' ');
+
+  return (
+    '<div id="card-' + slug + '" ' + dataAttrs + ' class="panel" style="position:relative; opacity:' + activeOp + '; transition:opacity 0.2s;">' +
+      '<div style="position:absolute; top:12px; right:12px; z-index:1;">' +
+        '<span class="action-badge" style="background:#1e2e1e; color:#4ade80; font-size:11px;">' + escHtml(s.practice_area || 'General') + '</span>' +
+      '</div>' +
+      '<div class="panel-body">' +
+        '<div style="display:flex; align-items:center; gap:10px; margin-bottom:8px;">' +
+          '<button id="toggle-' + slug + '" onclick="toggleSkill(\'' + slug.replace(/'/g, "\\'") + '\')" ' +
+          'title="Toggle Active / Inactive" ' +
+          'class="' + (isActive ? 'skill-toggle-active' : 'skill-toggle-inactive') + '">' +
+          (isActive ? 'Active' : 'Inactive') + '</button>' +
+          '<h3 style="margin:0; font-size:16px; opacity:' + activeOp + '; flex:1; line-height:1.3;">' + escHtml(s.name) + '</h3>' +
+        '</div>' +
+        '<p style="color:#888; font-size:13px; margin:0 0 10px; line-height:1.5; opacity:' + activeOp + '; transition:opacity 0.2s;">' + desc + '</p>' +
+        '<div style="display:flex; gap:6px; flex-wrap:wrap; margin-bottom:10px; opacity:' + activeOp + '; transition:opacity 0.2s;">' +
+          badges.join('') +
+        '</div>' +
+        '<div style="display:flex; gap:6px; flex-wrap:wrap; align-items:center;">' +
+          '<a href="/skills/' + slug + '" class="btn btn-secondary btn-sm">View</a>' +
+          '<button onclick="editSkill(\'' + slug.replace(/'/g, "\\'") + '\')" class="btn btn-secondary btn-sm">Edit</button>' +
+        '</div>' +
+      '</div>' +
+    '</div>'
+  );
+}
+
+// ── Build filter dropdown options from live data ───────────────────────────────
+function buildFilterDropdowns() {
+  var paSet = {}, mtSet = {}, slSet = {}, tierSet = {};
+  allSkills.forEach(function(s) {
+    if (s.practice_area) paSet[s.practice_area] = true;
+    if (s.matter_type)   mtSet[s.matter_type]   = true;
+    if (s.service_line)  slSet[s.service_line]   = true;
+    if (s.tier)           tierSet[s.tier]           = true;
+  });
+  function pop(id, map, label) {
+    var el = document.getElementById(id);
+    var keys = Object.keys(map).sort();
+    el.innerHTML = '<option value="">All ' + label + '</option>';
+    keys.forEach(function(v) {
+      el.innerHTML += '<option value="' + escHtml(v) + '">' + escHtml(v) + '</option>';
+    });
+  }
+  pop('f-pa',  paSet,  'Practice Areas');
+  pop('f-mt',  mtSet,  'Matter Types');
+  pop('f-sl',  slSet,  'Service Lines');
+}
+
+// ── Filter cards by toggling display (no re-render) ───────────────────────────
+function renderFiltered() {
+  var status = document.getElementById('f-status').value;
+  var pa     = document.getElementById('f-pa').value;
+  var mt     = document.getElementById('f-mt').value;
+  var sl     = document.getElementById('f-sl').value;
+  var tier   = document.getElementById('f-tier').value;
+  var exec   = document.getElementById('f-exec').value;
+
+  var visible = 0;
+  allSkills.forEach(function(s) {
+    var slug = escHtml(s.slug || s.id || '');
+    var card = document.getElementById('card-' + slug);
+    if (!card) return;
+
+    var isActive = s.is_active !== 0;
+    var show = true;
+    if (status === 'active'   && !isActive)   show = false;
+    if (status === 'inactive' &&  isActive)  show = false;
+    if (pa   && s.practice_area !== pa)      show = false;
+    if (mt   && s.matter_type   !== mt)      show = false;
+    if (sl   && s.service_line  !== sl)      show = false;
+    if (tier && s.tier          !== tier)  show = false;
+    if (exec === 'auto'  && !s.automated)   show = false;
+    if (exec === 'manual' &&  s.automated)  show = false;
+
+    card.style.display = show ? '' : 'none';
+    if (show) visible++;
+  });
+
+  // Update counts
+  var activeCount   = allSkills.filter(function(s){ return s.is_active !== 0; }).length;
+  var inactiveCount = allSkills.length - activeCount;
+  document.getElementById('filter-count').textContent = visible + ' / ' + allSkills.length;
+  document.getElementById('stats-bar').innerHTML =
+    '<span class="mono text-sm" style="color:#888;">Total: <span class="teal-text">' + allSkills.length + '</span></span>' +
+    '<span style="background:#1e3a2e; color:#4ade80; padding:2px 8px; border-radius:12px; font-size:12px;">Active: <b>' + activeCount + '</b></span>' +
+    '<span style="background:#3a1e1e; color:#f87171; padding:2px 8px; border-radius:12px; font-size:12px;">Inactive: <b>' + inactiveCount + '</b></span>';
+
+  // Show/hide grid vs no-results
+  var grid = document.getElementById('skills-grid');
+  var noResults = document.getElementById('no-results');
+  if (visible === 0) {
+    grid.style.display = 'none';
+    noResults.style.display = 'block';
+  } else {
+    grid.style.display = '';
+    noResults.style.display = 'none';
+  }
+}
+
+function clearFilters() {
+  document.getElementById('f-status').value = 'active';
+  document.getElementById('f-pa').value = '';
+  document.getElementById('f-mt').value = '';
+  document.getElementById('f-sl').value = '';
+  document.getElementById('f-tier').value = '';
+  document.getElementById('f-exec').value = '';
+  renderFiltered();
+}
+
+function escHtml(s) {
+  return String(s)
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// ── Modal helpers ─────────────────────────────────────────────────────────────
+function openModal(slug) {
+  document.getElementById('skill-modal').style.display = 'block';
+  document.getElementById('skill-form').reset();
+  document.getElementById('skill-slug').value = slug || '';
+  document.getElementById('modal-title').textContent = slug ? 'Edit Skill' : 'Add Skill';
+  document.getElementById('f-slug').readOnly = !!slug;
+  if (slug) editSkill(slug);
+}
+
+function closeModal() {
+  document.getElementById('skill-modal').style.display = 'none';
+  document.getElementById('modal-error').style.display = 'none';
+}
+
+async function editSkill(slug) {
+  var r = await fetch('/api/skills/' + slug);
+  var s = await r.json();
+  document.getElementById('modal-title').textContent = 'Edit Skill';
+  document.getElementById('skill-slug').value = s.slug || s.id;
+  document.getElementById('f-slug').value = s.slug || s.id;
+  document.getElementById('f-slug').readOnly = true;
+  document.getElementById('f-name').value = s.name || '';
+  document.getElementById('f-desc').value = s.description || '';
+  document.getElementById('f-practice-area').value = s.practice_area || '';
+  document.getElementById('f-service-line').value = s.service_line || '';
+  document.getElementById('f-tier-modal').value = s.tier || '';
+  document.getElementById('f-matter-type').value = s.matter_type || '';
+  document.getElementById('f-trigger').value = s.trigger || '';
+  document.getElementById('f-automated').value = (s.automated !== undefined && s.automated !== null) ? String(s.automated) : '0';
+}
+
+// ── Save ─────────────────────────────────────────────────────────────────────
+document.getElementById('skill-form').addEventListener('submit', async function(e) {
+  e.preventDefault();
+  var slug = document.getElementById('skill-slug').value.trim();
+  var isNew = !document.getElementById('f-slug').readOnly;
+  var payload = {
+    slug:         document.getElementById('f-slug').value.trim(),
+    name:         document.getElementById('f-name').value.trim(),
+    description:  document.getElementById('f-desc').value.trim(),
+    practice_area:document.getElementById('f-practice-area').value.trim(),
+    service_line: document.getElementById('f-service-line').value.trim(),
+    tier:         document.getElementById('f-tier-modal').value.trim(),
+    matter_type:  document.getElementById('f-matter-type').value.trim(),
+    trigger:      document.getElementById('f-trigger').value.trim(),
+    automated:    parseInt(document.getElementById('f-automated').value),
+  };
+  if (!payload.slug || !payload.name) {
+    var err = document.getElementById('modal-error');
+    err.textContent = 'Slug and name are required.';
+    err.style.display = 'block';
+    return;
+  }
+  var r;
+  if (isNew) {
+    r = await fetch('/api/skills', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+  } else {
+    r = await fetch('/api/skills/' + slug, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+  }
+  if (r.ok) {
+    closeModal();
+    loadSkills();
+  } else {
+    var e2 = document.getElementById('modal-error');
+    e2.textContent = (await r.json()).error || 'Save failed.';
+    e2.style.display = 'block';
+  }
+});
+
+// ── Toggle active/inactive ───────────────────────────────────────────────────
+async function toggleSkill(slug) {
+  var btn = document.getElementById('toggle-' + slug);
+  if (!btn) return;
+  btn.disabled = true;
+  try {
+    var r = await fetch('/api/skills/' + slug + '/active', {method:'PATCH'});
+    if (!r.ok) throw new Error('API error');
+    var d = await r.json();
+    var active = d.is_active === 1;
+
+    // Update toggle button
+    btn.textContent = active ? 'Active' : 'Inactive';
+    btn.className = active ? 'skill-toggle-active' : 'skill-toggle-inactive';
+    btn.style.background = active ? '#1e3a2e' : '#3a1e1e';
+    btn.style.borderColor = active ? '#38a169' : '#e53e3e';
+    btn.style.color = active ? '#4ade80' : '#f87171';
+    btn.disabled = false;
+
+    // Update card opacity
+    var card = document.getElementById('card-' + slug);
+    if (card) {
+      var op = active ? '1' : '0.4';
+      card.style.opacity = op;
+      card.querySelector('h3').style.opacity = op;
+      var p = card.querySelector('p');
+      if (p) p.style.opacity = op;
+      var badgeRow = card.querySelectorAll('[class*="action-badge"]');
+      for (var i = 0; i < badgeRow.length; i++) badgeRow[i].style.opacity = op;
+
+      // Update data-active so filter still works
+      card.dataset.active = active ? '1' : '0';
+
+      // Update the allSkills reference
+      var skill = allSkills.find(function(s){ return (s.slug||s.id) === slug; });
+      if (skill) skill.is_active = d.is_active;
+
+      // Re-run filter so card disappears if status filter excludes it
+      renderFiltered();
+    }
+  } catch(e) {
+    btn.disabled = false;
+    console.error('toggle failed', e);
+  }
+}
+
+// ── Boot ─────────────────────────────────────────────────────────────────────
+loadSkills();
+</script>
+{% endblock %}
