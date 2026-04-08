@@ -29,6 +29,20 @@ email_received
 
 ---
 
+## Email Polling (Automated)
+
+The app polls for new emails automatically every 5 minutes via a LaunchAgent.
+
+When a new email is detected:
+1. It appears in the AD-Intake pending queue (Telegram topic #7 notification)
+2. Process via the standard Email Workflow above
+3. The email is marked as processed in the matter_sources table
+
+To manually trigger a poll: POST /api/intake/poll-email
+To check pending emails: GET /api/intake/pending-emails
+
+---
+
 ## Email Workflow — Every New Enquiry
 
 When you receive a new email from a potential client, follow this sequence:

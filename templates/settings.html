@@ -13,6 +13,9 @@
   <a href="{{ url_for('settings_engagement') }}" class="settings-tab">
     Briefing Config
   </a>
+  <a href="{{ url_for('settings', tab='token_costs') }}" class="settings-tab {% if tab == 'token_costs' %}active{% endif %}">
+    Token Costs
+  </a>
   <a href="{{ url_for('settings', tab='soul') }}" class="settings-tab {% if tab == 'soul' %}active{% endif %}">
     ✎ SOUL.md Files
   </a>
@@ -134,6 +137,52 @@
           <input type="text" name="fee_estimate" class="form-input" placeholder="e.g. £500–£800 + VAT">
         </div>
         <button type="submit" class="btn btn-primary self-end">Add</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- Token Costs -->
+{% if tab == 'token_costs' %}
+<div class="panel">
+  <div class="panel-header">
+    <h2 class="panel-title">Token Cost Rates</h2>
+    <span class="text-xs text-muted">LLM pricing per 1M tokens (GBP). Used by <code>calculate_token_cost()</code>.</span>
+  </div>
+  <div class="panel-body no-padding">
+    <table class="data-table">
+      <thead>
+        <tr><th>Model</th><th>Input / 1M tokens (GBP)</th><th>Output / 1M tokens (GBP)</th></tr>
+      </thead>
+      <tbody>
+        {% for model_key, rates in cfg.get('token_cost_rates', {}).items() %}
+        <tr>
+          <td class="teal-text mono">{{ model_key }}</td>
+          <td class="mono">{{ rates.get('input_per_m', 0) }}</td>
+          <td class="mono">{{ rates.get('output_per_m', 0) }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  <div class="panel-body">
+    <h3 class="text-sm text-muted mb-8">Edit Rates</h3>
+    <form method="POST" action="{{ url_for('settings_firm_config') }}">
+      <div class="form-row" style="flex-wrap: wrap; gap: 12px;">
+        {% for model_key, rates in cfg.get('token_cost_rates', {}).items() %}
+        <div style="display: flex; gap: 8px; align-items: center; width: 100%;">
+          <label class="form-label mono" style="min-width: 160px;">{{ model_key }}</label>
+          <input type="number" step="0.001" name="rate_input_{{ model_key }}" class="form-input" value="{{ rates.get('input_per_m', 0) }}" style="max-width: 140px;">
+          <span class="text-xs text-muted">in</span>
+          <input type="number" step="0.001" name="rate_output_{{ model_key }}" class="form-input" value="{{ rates.get('output_per_m', 0) }}" style="max-width: 140px;">
+          <span class="text-xs text-muted">out</span>
+        </div>
+        {% endfor %}
+      </div>
+      <input type="hidden" name="token_cost_rates_models" value="{{ cfg.get('token_cost_rates', {}).keys()|list|tojson }}">
+      <div class="mt-16">
+        <button type="submit" class="btn btn-primary">Save Rates</button>
       </div>
     </form>
   </div>

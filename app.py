@@ -266,6 +266,19 @@ def init_briefing_schema(db):
         except Exception:
             pass
 
+    db.execute('''CREATE TABLE IF NOT EXISTS matter_sources (
+        id TEXT PRIMARY KEY,
+        source_type TEXT,
+        source_id TEXT,
+        sender_name TEXT,
+        sender_email TEXT,
+        subject TEXT,
+        body_preview TEXT,
+        matter_id TEXT REFERENCES matters(id),
+        created_at TEXT,
+        processed_at TEXT
+    )''')
+
     db.commit()
 
 def get_db():
@@ -288,7 +301,20 @@ DEFAULT_FIRM_CONFIG = {
     'registered_address': 'PENDING',
     'complaints_email': 'complaints@acmedale.co.uk',
     'website_url': 'https://acmedale.co.uk',
-    'pricing_url': 'https://acmedale.co.uk/pricing'
+    'pricing_url': 'https://acmedale.co.uk/pricing',
+    'email_poll': {
+        'enabled': False,
+        'account': 'atlas',
+        'poll_interval_seconds': 300,
+        'intake_email': 'intake@acmedalelegal.co.uk',
+    },
+    'token_cost_rates': {
+        'minimax-m2.7':   {'input_per_m': 0.107, 'output_per_m': 0.428},
+        'minimax-m2.1':   {'input_per_m': 0.055, 'output_per_m': 0.220},
+        'claude-opus-4':  {'input_per_m': 12.50, 'output_per_m': 75.00},
+        'gpt-4o':         {'input_per_m': 2.50,  'output_per_m': 10.00},
+        'default':        {'input_per_m': 0.107, 'output_per_m': 0.428},
+    },
 }
 
 def get_firm_config():
@@ -304,23 +330,168 @@ def save_firm_config(cfg):
     with open(FIRM_CONFIG, 'w') as f:
         json.dump(cfg, f, indent=2)
 
+
+def init_db():
+    """Create all database tables. Safe to call multiple times (uses IF NOT EXISTS)."""
+    DB_PATH.parent.mkdir(parents=True, exist_ok=True)
+    db = sqlite3.connect(str(DB_PATH))
+    db.row_factory = sqlite3.Row
+    db.execute('''CREATE TABLE IF NOT EXISTS clients (
+        id TEXT PRIMARY KEY, name TEXT, company_name TEXT, email TEXT,
+        is_active INTEGER DEFAULT 1, created_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS matters (
+        id TEXT PRIMARY KEY, client_id TEXT, client_name TEXT, client_email TEXT,
+        practice_area TEXT, matter_type TEXT, ref TEXT,
+        confidence_practice_area REAL, confidence_matter_type REAL,
+        status TEXT, summary TEXT, raw_email TEXT, client_care_letter TEXT,
+        output TEXT, ai_disclosure_included INTEGER, fee_estimate TEXT,
+        conflict_check_status TEXT, notes TEXT, created_at TEXT, updated_at TEXT,
+        adverse_parties TEXT, conflict_search_run INTEGER, conflict_searched_at TEXT,
+        portal_token TEXT, completed_at TEXT, phase TEXT,
+        hitl_status TEXT, agent_activity TEXT, human_action_required TEXT,
+        human_action_at TEXT, last_agent_activity_at TEXT,
+        agent_sub_status TEXT, drive_folder_id TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS audit_log (
+        id TEXT PRIMARY KEY, matter_id TEXT, agent_id TEXT, action_type TEXT,
+        detail TEXT, tokens_used INTEGER, cost_usd REAL, model_used TEXT,
+        confidence_score REAL, human_override INTEGER, human_reviewer TEXT,
+        created_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS conflict_log (
+        id TEXT PRIMARY KEY, matter_id TEXT, new_client_name TEXT,
+        existing_client_id TEXT, check_type TEXT, result TEXT,
+        handled_by TEXT, resolution TEXT, created_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS compliance_checklist (
+        id TEXT PRIMARY KEY, matter_id TEXT, conflict_check INTEGER,
+        conflict_check_at TEXT, client_care_letter_sent INTEGER,
+        client_care_letter_sent_at TEXT, ai_disclosure_included INTEGER,
+        fee_estimate_provided INTEGER, sra_registration_disclosed INTEGER,
+        insurance_disclosed INTEGER, complaints_procedure_included INTEGER,
+        data_privacy_notice_attached INTEGER, human_review_approved INTEGER,
+        human_review_approved_by TEXT, human_review_approved_at TEXT,
+        all_checks_passed INTEGER)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS compliance_checks (
+        id TEXT PRIMARY KEY, matter_id TEXT,
+        conflict_check_status TEXT, conflict_check_mode TEXT,
+        conflict_check_at TEXT, conflict_check_by TEXT,
+        kyc_check_status TEXT, kyc_check_mode TEXT,
+        kyc_check_at TEXT, kyc_check_by TEXT,
+        aml_check_status TEXT, aml_check_mode TEXT,
+        aml_check_at TEXT, aml_check_by TEXT,
+        client_care_letter_sent INTEGER, client_care_letter_sent_at TEXT,
+        ai_disclosure_included INTEGER, fee_estimate_provided INTEGER,
+        sra_registration_disclosed INTEGER, insurance_disclosed INTEGER,
+        complaints_procedure_included INTEGER, data_privacy_notice_attached INTEGER,
+        human_review_approved INTEGER, all_checks_passed INTEGER)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS practice_areas (
+        id TEXT PRIMARY KEY, name TEXT, slug TEXT, description TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS matter_types (
+        id TEXT PRIMARY KEY, practice_area_slug TEXT, name TEXT, slug TEXT,
+        ai_effort TEXT, delivery_pattern TEXT, fee_estimate TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS documents (
+        id TEXT PRIMARY KEY, matter_id TEXT, doc_type TEXT, name TEXT,
+        description TEXT, drive_file_id TEXT, drive_folder_id TEXT,
+        drive_web_link TEXT, mime_type TEXT, size INTEGER, version INTEGER,
+        tags TEXT, uploaded_by TEXT, created_at TEXT, updated_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS communications (
+        id TEXT PRIMARY KEY, matter_id TEXT, action_type TEXT, direction TEXT,
+        detail TEXT, agent_id TEXT, tokens_used INTEGER, cost_usd REAL,
+        model TEXT, created_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS time_entries (
+        id TEXT PRIMARY KEY, matter_id TEXT, agent_id TEXT, description TEXT,
+        duration_minutes INTEGER, rate_effective INTEGER, fee_amount INTEGER,
+        entry_date TEXT, billing_status TEXT, invoice_id TEXT, created_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS invoices (
+        id TEXT PRIMARY KEY, matter_id TEXT, client_name TEXT, client_email TEXT,
+        invoice_number TEXT, status TEXT, total_amount INTEGER,
+        issued_at TEXT, due_at TEXT, paid_at TEXT, created_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS disbursements (
+        id TEXT PRIMARY KEY, matter_id TEXT, description TEXT, amount INTEGER,
+        disbursement_type TEXT, created_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS deadlines (
+        id TEXT PRIMARY KEY, matter_id TEXT, description TEXT, deadline_date TEXT,
+        deadline_type TEXT, status TEXT, created_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS precedents (
+        id TEXT PRIMARY KEY, matter_id TEXT, practice_area TEXT, matter_type TEXT,
+        summary TEXT, outcome TEXT, rag_summary TEXT, key_lessons TEXT,
+        completed_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS legal_skills (
+        id TEXT PRIMARY KEY, practice_area TEXT, name TEXT, description TEXT,
+        trigger TEXT, steps TEXT, automated INTEGER, created_at TEXT,
+        matter_type TEXT, tier TEXT, service_line TEXT, slug TEXT,
+        is_active INTEGER DEFAULT 1)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS skill_steps (
+        id TEXT PRIMARY KEY, skill_id TEXT, step_order INTEGER, name TEXT,
+        description TEXT, step_type TEXT, sub_skill_slug TEXT, integration TEXT,
+        template_slug TEXT, client_input TEXT, automated INTEGER,
+        execution_notes TEXT, created_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS crm_companies (
+        id TEXT PRIMARY KEY, org_type TEXT, company_name TEXT, company_number TEXT,
+        registered_address TEXT, trading_address TEXT, size TEXT, industry TEXT,
+        website TEXT, linkedin_url TEXT, market_segment TEXT, status TEXT,
+        parent_company_id TEXT, source TEXT, referred_by TEXT, notes TEXT,
+        tags TEXT, created_at TEXT, updated_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS crm_contacts (
+        id TEXT PRIMARY KEY, company_id TEXT, title TEXT, first_name TEXT,
+        last_name TEXT, email TEXT, phone TEXT, mobile TEXT, role TEXT,
+        is_key_decision_maker INTEGER, linked_companies TEXT, source TEXT,
+        referred_by TEXT, initial_contact_date TEXT, marketing_consent INTEGER,
+        kyc_status TEXT, kyc_checked_at TEXT, kyc_by TEXT, status TEXT,
+        notes TEXT, tags TEXT, created_at TEXT, updated_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS crm_directors (
+        id TEXT PRIMARY KEY, company_id TEXT, director_name TEXT,
+        director_email TEXT, director_dob TEXT, is_psc INTEGER,
+        psc_shareholding TEXT, is_active INTEGER, appointed_date TEXT,
+        resigned_date TEXT, created_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS crm_products (
+        id TEXT PRIMARY KEY, name TEXT, slug TEXT, description TEXT,
+        category TEXT, delivery_type TEXT, tier_name TEXT,
+        tier_price_monthly INTEGER, tier_price_transaction INTEGER,
+        usage_limit_per_month INTEGER, automation_ratio INTEGER,
+        practice_area TEXT, matter_type TEXT, target_client_size TEXT,
+        status TEXT, created_at TEXT, updated_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS crm_company_products (
+        id TEXT PRIMARY KEY, company_id TEXT, contact_id TEXT, product_id TEXT,
+        tier TEXT, status TEXT, start_date TEXT, trial_end_date TEXT,
+        cancelled_at TEXT, mrr_value INTEGER, arr_value INTEGER,
+        next_review_date TEXT, notes TEXT, created_at TEXT, updated_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS crm_pipelines (
+        id TEXT PRIMARY KEY, contact_id TEXT, company_id TEXT, product_id TEXT,
+        stage TEXT, estimated_value INTEGER, conversion_probability INTEGER,
+        expected_close_date TEXT, converted_to_company_product_id TEXT,
+        won_at TEXT, lost_at TEXT, lost_reason TEXT, notes TEXT,
+        created_at TEXT, updated_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS crm_activities (
+        id TEXT PRIMARY KEY, contact_id TEXT, company_id TEXT, product_id TEXT,
+        matter_id TEXT, activity_type TEXT, subject TEXT, body TEXT,
+        activity_date TEXT, created_by_agent TEXT, sra_logged INTEGER,
+        created_at TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS data_retention_policy (
+        id TEXT PRIMARY KEY, data_type TEXT, retention_days INTEGER,
+        deletion_action TEXT, legal_basis TEXT)''')
+    db.execute('''CREATE TABLE IF NOT EXISTS skills_metadata (
+        skill_slug TEXT PRIMARY KEY, is_active INTEGER, use_count INTEGER,
+        last_used_at TEXT, created_at TEXT, description_override TEXT,
+        created_by TEXT)''')
+    db.commit()
+    init_briefing_schema(db)
+    db.close()
+
+
 # =============================================================================
 # TOKEN COST + PORTAL HELPERS
 # =============================================================================
 
 def calculate_token_cost(input_tokens, output_tokens, model='minimax-m2.7'):
-    """Calculate GBP cost of an LLM call. Rates per 1M tokens."""
-    RATES = {
-        'minimax-m2.7':   (0.107, 0.428),
-        'minimax-m2.1':   (0.055, 0.220),
-        'claude-opus-4':  (12.50, 75.00),
-        'gpt-4o':         (2.50,  10.00),
-        'default':        (0.107, 0.428),
-    }
-    if model.lower() not in RATES:
-        model = 'default'
-    rates = RATES.get(model.lower(), RATES['default'])
-    return ((input_tokens / 1_000_000) * rates[0]) + ((output_tokens / 1_000_000) * rates[1])
+    """Calculate GBP cost of an LLM call. Reads rates from firm_config."""
+    cfg = get_firm_config()
+    rates_map = cfg.get('token_cost_rates', {
+        'minimax-m2.7':   {'input_per_m': 0.107, 'output_per_m': 0.428},
+        'default':        {'input_per_m': 0.107, 'output_per_m': 0.428},
+    })
+    key = model.lower() if model.lower() in rates_map else 'default'
+    rates = rates_map[key]
+    return ((input_tokens / 1_000_000) * rates['input_per_m']) + \
+           ((output_tokens / 1_000_000) * rates['output_per_m'])
 
 def log_activity(db, token_id, matter_id, activity_type, description, ip_address, user_agent):
     db.execute("""INSERT INTO portal_activity_log
@@ -1855,7 +2026,7 @@ def portal_matter(matter_id):
     token = session.get('portal_token', '')
     if not token:
         flash("Please access the portal from your email link.", "error")
-        return redirect(url_for("index"))
+        return redirect(url_for("dashboard"))
 
     db = get_db()
     token_hash = hashlib.sha256(token.encode()).hexdigest()
@@ -2028,6 +2199,8 @@ def portal_send_login(matter_id):
 @app.route('/api/matters/<id>/log-token-usage', methods=['POST'])
 def log_token_usage(id):
     """Agents call this after completing a task to log token usage."""
+    if not request.is_json:
+        return jsonify({"error": "JSON required"}), 400
     db = get_db()
     matter = db.execute("SELECT id FROM matters WHERE id = ?", (id,)).fetchone()
     if not matter:
@@ -2049,6 +2222,95 @@ def log_token_usage(id):
     db.commit()
 
     return jsonify({"logged": True, "cost_gbp": round(cost, 4), "total_tokens": inp + out})
+
+
+# =============================================================================
+# EMAIL POLLING ROUTES
+# =============================================================================
+
+@app.route('/api/intake/poll-email', methods=['POST'])
+def api_poll_email():
+    """Trigger an email poll via himalaya."""
+    from email_poller import poll_new_emails, get_pending_emails
+    cfg = get_firm_config()
+    ep = cfg.get('email_poll', {})
+    account = ep.get('account', 'atlas')
+    new = poll_new_emails(account=account)
+    pending = get_pending_emails()
+    return jsonify({'polled': True, 'new_emails': len(new), 'total_pending': len(pending)})
+
+
+@app.route('/api/intake/pending-emails', methods=['GET'])
+def api_pending_emails():
+    """Return unprocessed inbound emails."""
+    from email_poller import get_pending_emails
+    pending = get_pending_emails()
+    return jsonify({'emails': pending, 'count': len(pending)})
+
+
+@app.route('/api/intake/process-email/<envelope_id>', methods=['POST'])
+def api_process_email(envelope_id):
+    """Mark an email as processed and create a matter from it."""
+    from email_poller import mark_processed, _read_inbound
+    entries = _read_inbound()
+    email_entry = None
+    for e in entries:
+        if str(e['id']) == str(envelope_id):
+            email_entry = e
+            break
+    if not email_entry:
+        return jsonify({'error': 'Email not found'}), 404
+
+    db = get_db()
+    now = datetime.now().isoformat()
+    mid = str(uuid.uuid4())
+    ref = gen_ref('Corporate', now)
+    sender_name = email_entry.get('from_name', '')
+    sender_email = email_entry.get('from_email', '')
+    subject = email_entry.get('subject', '')
+    body = email_entry.get('body', '')
+
+    db.execute(
+        'INSERT INTO matters (id, client_name, client_email, practice_area, matter_type, ref, phase, status, summary, notes, created_at, updated_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        (mid, sender_name or sender_email, sender_email, 'Corporate', 'General',
+         ref, 'intake', 'prospect', subject[:500], body[:2000], now, now))
+
+    db.execute(
+        'INSERT INTO matter_sources (id, source_type, source_id, sender_name, sender_email, subject, body_preview, matter_id, created_at, processed_at) VALUES (?,?,?,?,?,?,?,?,?,?)',
+        (str(uuid.uuid4()), 'email', str(envelope_id), sender_name, sender_email,
+         subject, body[:500], mid, email_entry.get('received_at', now), now))
+
+    db.execute(
+        'INSERT INTO audit_log (id, matter_id, agent_id, action_type, detail, human_override, human_reviewer, created_at) VALUES (?,?,?,?,?,0,?,?)',
+        (str(uuid.uuid4()), mid, 'AD-Intake', 'email_intake',
+         json.dumps({'envelope_id': str(envelope_id), 'subject': subject}), 'system', now))
+    db.commit()
+
+    mark_processed(envelope_id)
+    return jsonify({'matter_id': mid, 'ref': ref})
+
+
+# =============================================================================
+# SETTINGS — Firm Config API
+# =============================================================================
+
+@app.route('/settings/firm-config', methods=['POST'])
+def settings_firm_config():
+    """Update firm_config.json via JSON or form data."""
+    data = request.get_json(silent=True) or request.form.to_dict()
+    cfg = get_firm_config()
+    for k, v in data.items():
+        if k == 'token_cost_rates' and isinstance(v, str):
+            try:
+                v = json.loads(v)
+            except json.JSONDecodeError:
+                continue
+        cfg[k] = v
+    save_firm_config(cfg)
+    if request.is_json:
+        return jsonify({'status': 'ok'})
+    flash('Firm configuration updated.', 'success')
+    return redirect(url_for('settings', tab='firm'))
 
 
 if __name__=='__main__':
