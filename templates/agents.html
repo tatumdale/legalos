@@ -41,7 +41,7 @@
 
     <div class="agent-soul-preview">
       <div class="text-xs text-muted mb-4">SOUL.md excerpt:</div>
-      <pre class="soul-excerpt">{{ agent.soul[:400] }}{% if agent.soul|length > 400 %}...{% endif %}</pre>
+      <div style="background:#0f0f1a; border-radius:8px; padding:14px 16px; font-size:13px; line-height:1.7; color:#b0b0b0;">{{ agent.soul[:2000]|md|safe }}</div>
     </div>
   </div>
   {% endfor %}

@@ -13,6 +13,8 @@ from flask import Flask, g, render_template, request, redirect, url_for, jsonify
 import csv
 import io
 import sys
+import markdown
+import markupsafe
 sys.path.insert(0, str(Path(__file__).parent))
 from drive_helpers import get_matter_documents, get_or_create_matter_folder
 
@@ -493,6 +495,42 @@ def calculate_token_cost(input_tokens, output_tokens, model='minimax-m2.7'):
     return ((input_tokens / 1_000_000) * rates['input_per_m']) + \
            ((output_tokens / 1_000_000) * rates['output_per_m'])
 
+def render_md(text):
+    """Render markdown to safe HTML. Used as Jinja2 filter: {{ text|md|safe }}"""
+    if not text:
+        return ''
+    html = markdown.markdown(
+        text,
+        extensions=['fenced_code', 'tables', 'nl2br', 'sane_lists']
+    )
+    return markupsafe.Markup(html)
+
+def render_md_raw(text):
+    """Same as render_md but returns plain string (not Markup) for JS interpolation."""
+    if not text:
+        return ''
+    return markdown.markdown(text, extensions=['fenced_code', 'tables', 'nl2br', 'sane_lists'])
+
+app.jinja_env.filters['md'] = render_md
+
+
+AGENT_SOULS = {
+    'AD-Intake':    str(Path.home() / '.openclaw' / 'workspace-ad-intake' / 'SOUL.md'),
+    'AD-Review':    str(Path.home() / '.openclaw' / 'workspace-ad-review' / 'SOUL.md'),
+    'AD-Corporate': str(Path.home() / '.openclaw' / 'workspace-ad-corporate' / 'SOUL.md'),
+    'AD-Drafting':  str(Path.home() / '.openclaw' / 'workspace-ad-drafting' / 'SOUL.md'),
+    'AD-Research':  str(Path.home() / '.openclaw' / 'workspace-ad-research' / 'SOUL.md'),
+    'AD-Verify':    str(Path(__file__).parent / 'SOUL.md'),
+}
+
+def get_agent_soul(agent_name):
+    """Read a SOUL.md file for a given agent."""
+    path = AGENT_SOULS.get(agent_name)
+    if path and Path(path).exists():
+        return Path(path).read_text()
+    return ''
+
+
 def log_activity(db, token_id, matter_id, activity_type, description, ip_address, user_agent):
     db.execute("""INSERT INTO portal_activity_log
         (id, matter_id, token_id, activity_type, description, ip_address, user_agent, created_at)
@@ -577,7 +615,8 @@ def inject_globals():
                 matter_compliance_score=matter_compliance_score,
                 matter_status_class=matter_status_class, hitl_class=hitl_class, HITL_LABELS=HITL_LABELS,
                 format_briefing_summary=format_briefing_summary,
-                db=get_db, cfg=get_firm_config())
+                db=get_db, cfg=get_firm_config(),
+                AGENT_SOULS=AGENT_SOULS, get_agent_soul=get_agent_soul)
 
 app.context_processor(inject_globals)
 
@@ -1601,6 +1640,45 @@ def api_skills_toggle_active(slug):
     db.execute('UPDATE legal_skills SET is_active=? WHERE slug=?', (new_active, slug))
     db.commit()
     return jsonify({'is_active': new_active})
+
+
+@app.route('/api/md-preview', methods=['POST'])
+def api_md_preview():
+    data = request.get_json() or {}
+    text = data.get('text', '')
+    return jsonify({'html': render_md_raw(text)})
+
+
+@app.route('/api/skills/<slug>/file', methods=['GET'])
+def api_skills_get_file(slug):
+    """Return raw SKILL.md content for a skill."""
+    base = os.path.dirname(os.path.abspath(__file__))
+    skill_file_path = Path(base) / 'skills' / slug / 'SKILL.md'
+    if not skill_file_path.exists():
+        return jsonify({'error': 'SKILL.md not found'}), 404
+    return jsonify({'content': skill_file_path.read_text()})
+
+
+@app.route('/api/skills/<slug>/file', methods=['POST'])
+def api_skills_save_file(slug):
+    """Save raw SKILL.md content for a skill."""
+    data = request.get_json() or {}
+    content = data.get('content', '')
+    base = os.path.dirname(os.path.abspath(__file__))
+    skill_file_path = Path(base) / 'skills' / slug / 'SKILL.md'
+    if not skill_file_path.exists():
+        return jsonify({'error': 'SKILL.md not found'}), 404
+    skill_file_path.write_text(content)
+    db = get_db()
+    db.execute("UPDATE legal_skills SET updated_at=? WHERE slug=?", (datetime.now().isoformat(), slug))
+    db.commit()
+    db.execute(
+        'INSERT INTO audit_log (id, matter_id, agent_id, action_type, detail, human_override, human_reviewer, created_at) '
+        'VALUES (?, NULL, ?, ?, ?, 1, ?, ?)',
+        (str(uuid.uuid4()), 'AD-Intake', 'skill_file_edited',
+         f'SKILL.md edited for skill: {slug}', 'Fee Earner (via Legal OS)', datetime.now().isoformat()))
+    db.commit()
+    return jsonify({'status': 'ok'})
 
 
 # ---------- Dashboard API ----------

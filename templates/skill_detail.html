@@ -85,6 +85,21 @@ th { background: #18182a; color: #888; font-weight: 600; text-align: left; }
 .modal-header h3 { color:#e0e0e0; font-size:16px; }
 .modal-body { padding:20px; }
 .modal-footer { display:flex; justify-content:flex-end; gap:10px; padding:16px 20px; border-top:1px solid #1e1e30; }
+.split-editor { display:grid; grid-template-columns:1fr 1fr; gap:12px; min-height:400px; }
+.split-editor textarea.md-input { width:100%; height:100%; min-height:400px; background:#0f0f1a; border:1px solid #333; color:#c0c0c0; border-radius:8px; padding:12px; font-size:13px; font-family:'Courier New',monospace; resize:none; line-height:1.6; box-sizing:border-box; }
+.split-editor .md-preview-pane { background:#0f0f1a; border:1px solid #333; border-radius:8px; padding:12px 16px; min-height:400px; overflow-y:auto; color:#b0b0b0; font-size:13px; line-height:1.7; }
+.split-editor .md-preview-pane h1,.split-editor .md-preview-pane h2,.split-editor .md-preview-pane h3 { color:#e0e0e0; margin:12px 0 6px; }
+.split-editor .md-preview-pane h1 { font-size:18px; } .split-editor .md-preview-pane h2 { font-size:16px; } .split-editor .md-preview-pane h3 { font-size:14px; }
+.split-editor .md-preview-pane p { margin:0 0 8px; } .split-editor .md-preview-pane ul,.split-editor .md-preview-pane ol { padding-left:20px; margin:0 0 10px; }
+.split-editor .md-preview-pane li { margin-bottom:4px; } .split-editor .md-preview-pane strong { color:#d0d0d0; }
+.split-editor .md-preview-pane code { background:#1a1a2a; padding:2px 6px; border-radius:4px; font-size:12px; }
+.split-editor .md-preview-pane pre { background:#1a1a2a; padding:12px; border-radius:6px; overflow-x:auto; margin:0 0 10px; }
+.split-editor .md-preview-pane blockquote { border-left:3px solid #3a3a5a; padding-left:12px; color:#888; margin:0 0 10px; }
+.split-editor .md-preview-pane table { border-collapse:collapse; width:100%; margin:0 0 10px; }
+.split-editor .md-preview-pane th,.split-editor .md-preview-pane td { border:1px solid #333; padding:6px 10px; text-align:left; }
+.split-editor .md-preview-pane th { background:#1a1a2a; }
+.split-editor .md-preview-pane a { color:#6eb6ff; }
+.split-editor .preview-label { font-size:10px; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:block; }
 </style>
 </head>
 <body>
@@ -134,17 +149,17 @@ th { background: #18182a; color: #888; font-weight: 600; text-align: left; }
   <div style="margin-bottom:32px;">
     <h2 class="section-title">Skill Methodology &amp; Knowledge Base</h2>
     <p class="section-sub">How this skill works — legal framework, methodology, quality standards, and escalation rules</p>
-    {% for sec_title, sec_html in skill_file_sections %}
+    {% for sec_title, sec_body in skill_file_sections %}
     <div class="md-section">
       <h3>{{ sec_title }}</h3>
-      <div class="md-body">{{ sec_html|safe }}</div>
+      <div class="md-body">{{ sec_body|md|safe }}</div>
     </div>
     {% endfor %}
   </div>
   {% elif skill_file %}
-  <div class="raw-block">
+  <div class="raw-block" style="border:none;">
     <h2 class="section-title" style="padding:14px 20px 12px;border-bottom:1px solid #1e1e30;background:#18182a;">SKILL.md Content</h2>
-    <pre>{{ skill_file[:4000] }}</pre>
+    <div class="md-preview" style="padding:16px 20px; background:#0f0f1a; border-radius:0 0 8px 8px;">{{ skill_file|md|safe }}</div>
   </div>
   {% endif %}
 
@@ -174,6 +189,7 @@ th { background: #18182a; color: #888; font-weight: 600; text-align: left; }
   <div class="footer">
     <a href="/skills" class="btn btn-secondary btn-sm">&#8592; Back to Skills</a>
     <button onclick="openEditModal('{{ skill.slug or skill.id }}')" class="btn btn-secondary btn-sm">&#9998; Edit Skill</button>
+    <button onclick="openMdEditModal('{{ skill.slug or skill.id }}')" class="btn btn-secondary btn-sm">&#9998; Edit SKILL.md</button>
   </div>
 
   <!-- Edit Modal -->
@@ -237,6 +253,41 @@ th { background: #18182a; color: #888; font-weight: 600; text-align: left; }
     </div>
   </div>
 
+  <!-- Markdown Edit Modal -->
+  <div id="md-edit-modal" class="modal-overlay">
+    <div class="modal" style="width:960px; max-width:98vw;">
+      <div class="modal-header">
+        <h3>&#9998; Edit SKILL.md: <span id="md-edit-skill-name"></span></h3>
+        <button onclick="closeMdEditModal()" style="background:none;border:none;color:#888;font-size:20px;cursor:pointer;">&#10005;</button>
+      </div>
+      <div style="padding:16px 20px; border-bottom:1px solid #1e1e30;">
+        <div style="display:flex; justify-content:space-between; align-items:center;">
+          <span style="font-size:11px;color:#555;text-transform:uppercase;letter-spacing:0.5px;">Live Preview</span>
+          <button onclick="updateMdPreview()" class="btn btn-secondary btn-sm" style="font-size:11px;padding:4px 10px;">&#8635; Refresh Preview</button>
+        </div>
+      </div>
+      <form id="md-edit-form" onsubmit="saveMdEdit(event)">
+        <input type="hidden" id="md-edit-slug" name="slug">
+        <div style="padding:16px 20px;">
+          <div class="split-editor">
+            <div>
+              <span class="preview-label">Markdown</span>
+              <textarea id="md-input" class="md-input" name="content" oninput="debounceMdPreview()"></textarea>
+            </div>
+            <div>
+              <span class="preview-label">Rendered Preview</span>
+              <div id="md-preview-pane" class="md-preview-pane"></div>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer">
+          <button type="button" onclick="closeMdEditModal()" class="btn btn-secondary btn-sm">Cancel</button>
+          <button type="submit" class="btn btn-primary btn-sm">&#128190; Save SKILL.md</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
 </div>
 
 <script>
@@ -285,6 +336,62 @@ document.getElementById('edit-skill-form').addEventListener('submit', async func
     alert('Failed to save: ' + (await r.json()).error);
   }
 });
+
+var mdDebounceTimer = null;
+function debounceMdPreview() {
+  clearTimeout(mdDebounceTimer);
+  mdDebounceTimer = setTimeout(updateMdPreview, 600);
+}
+async function updateMdPreview() {
+  var text = document.getElementById('md-input').value;
+  var pane = document.getElementById('md-preview-pane');
+  if (!text.trim()) { pane.innerHTML = '<span style="color:#444;font-size:13px;">Start typing to see preview...</span>'; return; }
+  try {
+    var r = await fetch('/api/md-preview', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text: text})
+    });
+    var d = await r.json();
+    pane.innerHTML = d.html || '';
+  } catch(e) { pane.innerHTML = '<span style="color:#f87171;font-size:13px;">Preview error: ' + e.message + '</span>'; }
+}
+function openMdEditModal(slug) {
+  document.getElementById('md-edit-slug').value = slug;
+  document.getElementById('md-edit-skill-name').textContent = slug;
+  document.getElementById('md-edit-modal').classList.add('open');
+  document.getElementById('md-input').value = '';
+  document.getElementById('md-preview-pane').innerHTML = '<span style="color:#444;font-size:13px;">Loading...</span>';
+  fetch('/api/skills/' + slug + '/file')
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+      if (d.content !== undefined) {
+        document.getElementById('md-input').value = d.content;
+        updateMdPreview();
+      } else {
+        document.getElementById('md-preview-pane').innerHTML = '<span style="color:#f87171;font-size:13px;">Could not load SKILL.md: ' + (d.error || 'unknown error') + '</span>';
+      }
+    })
+    .catch(function(e) {
+      document.getElementById('md-preview-pane').innerHTML = '<span style="color:#f87171;font-size:13px;">Load error: ' + e.message + '</span>';
+    });
+}
+function closeMdEditModal() {
+  document.getElementById('md-edit-modal').classList.remove('open');
+  clearTimeout(mdDebounceTimer);
+}
+async function saveMdEdit(e) {
+  e.preventDefault();
+  var slug = document.getElementById('md-edit-slug').value;
+  var content = document.getElementById('md-input').value;
+  var r = await fetch('/api/skills/' + slug + '/file', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/json'},
+    body: JSON.stringify({content: content})
+  });
+  if (r.ok) { closeMdEditModal(); location.reload(); }
+  else { alert('Save failed: ' + (await r.json()).error); }
+}
 </script>
 </body>
 </html>

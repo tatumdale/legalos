@@ -191,6 +191,23 @@
 
 <!-- SOUL.md Editor -->
 {% if tab == 'soul' %}
+<style>
+.soul-split-editor { display:grid; grid-template-columns:1fr 1fr; gap:12px; min-height:400px; margin-bottom:16px; }
+.soul-split-editor textarea { width:100%; height:100%; min-height:400px; background:#0f0f1a; border:1px solid #333; color:#c0c0c0; border-radius:8px; padding:12px; font-size:13px; font-family:'Courier New',monospace; resize:vertical; line-height:1.6; box-sizing:border-box; }
+.soul-split-editor .soul-preview-pane { background:#0f0f1a; border:1px solid #333; border-radius:8px; padding:12px 16px; min-height:400px; overflow-y:auto; color:#b0b0b0; font-size:13px; line-height:1.7; }
+.soul-split-editor .soul-preview-pane h1,.soul-split-editor .soul-preview-pane h2,.soul-split-editor .soul-preview-pane h3 { color:#e0e0e0; margin:12px 0 6px; }
+.soul-split-editor .soul-preview-pane h1 { font-size:18px; } .soul-split-editor .soul-preview-pane h2 { font-size:16px; } .soul-split-editor .soul-preview-pane h3 { font-size:14px; }
+.soul-split-editor .soul-preview-pane p { margin:0 0 8px; } .soul-split-editor .soul-preview-pane ul,.soul-split-editor .soul-preview-pane ol { padding-left:20px; margin:0 0 10px; }
+.soul-split-editor .soul-preview-pane li { margin-bottom:4px; } .soul-split-editor .soul-preview-pane strong { color:#d0d0d0; }
+.soul-split-editor .soul-preview-pane code { background:#1a1a2a; padding:2px 6px; border-radius:4px; font-size:12px; }
+.soul-split-editor .soul-preview-pane pre { background:#1a1a2a; padding:12px; border-radius:6px; overflow-x:auto; margin:0 0 10px; }
+.soul-split-editor .soul-preview-pane blockquote { border-left:3px solid #3a3a5a; padding-left:12px; color:#888; margin:0 0 10px; }
+.soul-split-editor .soul-preview-pane table { border-collapse:collapse; width:100%; margin:0 0 10px; }
+.soul-split-editor .soul-preview-pane th,.soul-split-editor .soul-preview-pane td { border:1px solid #333; padding:6px 10px; text-align:left; }
+.soul-split-editor .soul-preview-pane th { background:#1a1a2a; }
+.soul-split-editor .soul-preview-pane a { color:#6eb6ff; }
+.soul-pane-label { font-size:10px; color:#555; text-transform:uppercase; letter-spacing:0.5px; margin-bottom:6px; display:block; }
+</style>
 <div class="panel">
   <div class="panel-header">
     <h2 class="panel-title">SOUL.md Editor</h2>
@@ -200,13 +217,25 @@
     <form method="POST">
       <input type="hidden" name="tab" value="soul">
       {% for agent_name, soul_path in AGENT_SOULS.items() %}
-      <div class="soul-editor-section">
-        <div class="soul-editor-header">
-          <h3 class="soul-agent-name">{{ agent_name }}</h3>
-          <span class="text-xs mono text-muted">{{ soul_path }}</span>
+      <div class="soul-editor-section" style="margin-bottom:32px;">
+        <div class="soul-editor-header" style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+          <div>
+            <h3 class="soul-agent-name">{{ agent_name }}</h3>
+            <span class="text-xs mono text-muted">{{ soul_path }}</span>
+          </div>
+          <button type="button" onclick="refreshSoulPreview('{{ loop.index0 }}')" class="btn btn-sm btn-secondary" style="font-size:11px;padding:4px 10px;">&#8635; Refresh Preview</button>
         </div>
         <input type="hidden" name="agent" value="{{ agent_name }}">
-        <textarea name="content" class="soul-textarea" rows="20">{{ get_agent_soul(agent_name) }}</textarea>
+        <div class="soul-split-editor">
+          <div>
+            <span class="soul-pane-label">Markdown</span>
+            <textarea name="content" class="soul-textarea" rows="20" id="soul-ta-{{ loop.index0 }}" oninput="debounceSoulPreview('{{ loop.index0 }}')">{{ get_agent_soul(agent_name) }}</textarea>
+          </div>
+          <div>
+            <span class="soul-pane-label">Rendered Preview</span>
+            <div class="soul-preview-pane" id="soul-preview-{{ loop.index0 }}">{{ get_agent_soul(agent_name)|md|safe }}</div>
+          </div>
+        </div>
       </div>
       {% endfor %}
       <div class="mt-16">
@@ -215,6 +244,27 @@
     </form>
   </div>
 </div>
+<script>
+var soulTimers = {};
+function debounceSoulPreview(idx) {
+  clearTimeout(soulTimers[idx]);
+  soulTimers[idx] = setTimeout(function() { refreshSoulPreview(idx); }, 600);
+}
+async function refreshSoulPreview(idx) {
+  var text = document.getElementById('soul-ta-' + idx).value;
+  var pane = document.getElementById('soul-preview-' + idx);
+  if (!text.trim()) { pane.innerHTML = '<span style="color:#444;font-size:13px;">Empty</span>'; return; }
+  try {
+    var r = await fetch('/api/md-preview', {
+      method: 'POST',
+      headers: {'Content-Type': 'application/json'},
+      body: JSON.stringify({text: text})
+    });
+    var d = await r.json();
+    pane.innerHTML = d.html || '';
+  } catch(e) { pane.innerHTML = '<span style="color:#f87171;">Preview error: ' + e.message + '</span>'; }
+}
+</script>
 {% endif %}
 
 <!-- Data Management -->
