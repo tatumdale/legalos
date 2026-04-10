@@ -78,8 +78,8 @@ th { background: #18182a; color: #888; font-weight: 600; text-align: left; }
 .btn-secondary:hover { background: #2a2a4a; color: #aaa; text-decoration: none; }
 .btn-primary { background: #2563eb; color: #fff; border: 1px solid #3b82f6; }
 .btn-primary:hover { background: #1d4ed8; }
-.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:999; display:none; align-items:center; justify-content:center; }
-.modal-overlay.open { display:flex; }
+.modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:999; display:none; visibility:hidden; align-items:center; justify-content:center; }
+.modal-overlay.open { display:flex; visibility:visible; }
 .modal { background:#141420; border:1px solid #2a2a4a; border-radius:12px; width:600px; max-width:95vw; max-height:90vh; overflow-y:auto; }
 .modal-header { display:flex; justify-content:space-between; align-items:center; padding:16px 20px; border-bottom:1px solid #1e1e30; }
 .modal-header h3 { color:#e0e0e0; font-size:16px; }
@@ -188,8 +188,8 @@ th { background: #18182a; color: #888; font-weight: 600; text-align: left; }
 
   <div class="footer">
     <a href="/skills" class="btn btn-secondary btn-sm">&#8592; Back to Skills</a>
-    <button onclick="openEditModal('{{ skill.slug or skill.id }}')" class="btn btn-secondary btn-sm">&#9998; Edit Skill</button>
-    <button onclick="openMdEditModal('{{ skill.slug or skill.id }}')" class="btn btn-secondary btn-sm">&#9998; Edit SKILL.md</button>
+    <button id="btn-edit-skill" data-slug="{{ skill.slug or skill.id }}" class="btn btn-secondary btn-sm">&#9998; Edit Skill</button>
+    <button id="btn-edit-skills-md" data-slug="{{ skill.slug or skill.id }}" class="btn btn-secondary btn-sm">&#9998; Edit SKILL.md</button>
   </div>
 
   <!-- Edit Modal -->
@@ -291,6 +291,25 @@ th { background: #18182a; color: #888; font-weight: 600; text-align: left; }
 </div>
 
 <script>
+document.addEventListener('DOMContentLoaded', function() {
+  var editMdBtn = document.getElementById('btn-edit-skills-md');
+  if (editMdBtn) {
+    editMdBtn.addEventListener('click', function() {
+      console.log('[DEBUG] Edit SKILL.md button clicked');
+      var slug = editMdBtn.getAttribute('data-slug') || 'commercial-law';
+      openMdEditModal(slug);
+    });
+  }
+  var editSkillBtn = document.getElementById('btn-edit-skill');
+  if (editSkillBtn) {
+    editSkillBtn.addEventListener('click', function() {
+      console.log('[DEBUG] Edit Skill button clicked');
+      var slug = editSkillBtn.getAttribute('data-slug') || 'commercial-law';
+      openEditModal(slug);
+    });
+  }
+});
+
 function openEditModal(slug) {
   fetch('/api/skills/' + slug)
     .then(r => r.json())
@@ -357,27 +376,47 @@ async function updateMdPreview() {
   } catch(e) { pane.innerHTML = '<span style="color:#f87171;font-size:13px;">Preview error: ' + e.message + '</span>'; }
 }
 function openMdEditModal(slug) {
-  document.getElementById('md-edit-slug').value = slug;
-  document.getElementById('md-edit-skill-name').textContent = slug;
-  document.getElementById('md-edit-modal').classList.add('open');
-  document.getElementById('md-input').value = '';
-  document.getElementById('md-preview-pane').innerHTML = '<span style="color:#444;font-size:13px;">Loading...</span>';
+  console.log('[DEBUG] openMdEditModal called with slug:', slug);
+  var modal = document.getElementById('md-edit-modal');
+  var slugInput = document.getElementById('md-edit-slug');
+  var nameSpan = document.getElementById('md-edit-skill-name');
+  var inputArea = document.getElementById('md-input');
+  var previewPane = document.getElementById('md-preview-pane');
+
+  if (!modal) { console.error('[DEBUG] modal element not found'); return; }
+
+  if (slugInput) slugInput.value = slug;
+  if (nameSpan) nameSpan.textContent = slug;
+
+  modal.classList.add('open');
+  console.log('[DEBUG] modal opened, classList:', modal.className);
+
+  if (inputArea) inputArea.value = 'Loading...';
+  if (previewPane) previewPane.innerHTML = '<span style="color:#444;font-size:13px;">Loading SKILL.md...</span>';
+
   fetch('/api/skills/' + slug + '/file')
-    .then(function(r) { return r.json(); })
+    .then(function(r) {
+      console.log('[DEBUG] fetch returned status:', r.status);
+      return r.json();
+    })
     .then(function(d) {
+      console.log('[DEBUG] API returned:', Object.keys(d));
       if (d.content !== undefined) {
-        document.getElementById('md-input').value = d.content;
+        if (inputArea) inputArea.value = d.content;
         updateMdPreview();
       } else {
-        document.getElementById('md-preview-pane').innerHTML = '<span style="color:#f87171;font-size:13px;">Could not load SKILL.md: ' + (d.error || 'unknown error') + '</span>';
+        if (previewPane) previewPane.innerHTML = '<span style="color:#f87171;font-size:13px;">Could not load SKILL.md: ' + (d.error || 'unknown') + '</span>';
       }
     })
     .catch(function(e) {
-      document.getElementById('md-preview-pane').innerHTML = '<span style="color:#f87171;font-size:13px;">Load error: ' + e.message + '</span>';
+      console.error('[DEBUG] fetch error:', e);
+      if (previewPane) previewPane.innerHTML = '<span style="color:#f87171;font-size:13px;">Load error: ' + e.message + '</span>';
     });
 }
 function closeMdEditModal() {
-  document.getElementById('md-edit-modal').classList.remove('open');
+  console.log('[DEBUG] closeMdEditModal called');
+  var modal = document.getElementById('md-edit-modal');
+  if (modal) { modal.classList.remove('open'); console.log('[DEBUG] modal closed'); }
   clearTimeout(mdDebounceTimer);
 }
 async function saveMdEdit(e) {
