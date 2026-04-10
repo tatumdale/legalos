@@ -901,7 +901,7 @@ def parse_skill_file(slug):
         title = lines[0].strip()
         body = '\n'.join(lines[1:]).strip()
         if title:
-            sections.append({'title': title, 'body': body})
+            sections.append((title, body))
     return raw, sections
 
 @app.route('/skills/<slug>')
