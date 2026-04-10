@@ -1582,22 +1582,70 @@ def api_skills_get(slug):
 
 @app.route('/api/skills', methods=['POST'])
 def api_skills_create():
-    data = request.get_json() or {}
-    if not data.get('name'):
-        return jsonify({'error': 'Name required'}), 400
+    ct = request.content_type or ''
+
+    if 'multipart/form-data' in ct:
+        name         = request.form.get('name', '').strip()
+        slug_val     = request.form.get('slug', '').strip()
+        description  = request.form.get('description', '').strip()
+        trigger      = request.form.get('trigger', '').strip()
+        practice_area= request.form.get('practice_area', '').strip()
+        matter_type  = request.form.get('matter_type', '').strip()
+        tier         = request.form.get('tier', '').strip()
+        service_line = request.form.get('service_line', '').strip()
+        automated    = int(request.form.get('automated', '1'))
+        markdown_src = request.form.get('markdown_content', '').strip()
+        skill_file   = request.files.get('skill_file')
+
+        if not name:
+            return jsonify({'error': 'Name required'}), 400
+
+        if not slug_val:
+            slug_val = name.lower().replace(' ', '-').replace('/', '-').replace("'", '').replace('"', '')[:60]
+    else:
+        data = request.get_json() or {}
+        if not data.get('name'):
+            return jsonify({'error': 'Name required'}), 400
+        name         = data.get('name', '').strip()
+        slug_val     = data.get('slug', '').strip()
+        description  = data.get('description', '').strip()
+        trigger      = data.get('trigger', '').strip()
+        practice_area= data.get('practice_area', '').strip()
+        matter_type  = data.get('matter_type', '').strip()
+        tier         = data.get('tier', '').strip()
+        service_line = data.get('service_line', '').strip()
+        automated    = 1 if data.get('automated') else 0
+        markdown_src = ''
+        skill_file   = None
+
+        if not slug_val:
+            slug_val = name.lower().replace(' ', '-').replace('/', '-').replace("'", '').replace('"', '')[:60]
+
     db = get_db()
     sid = str(uuid.uuid4())
-    slug_val = data.get('slug') or data['name'].lower().replace(' ', '-').replace('/', '-')[:60]
+
+    existing = db.execute('SELECT id FROM legal_skills WHERE slug=?', (slug_val,)).fetchone()
+    if existing:
+        return jsonify({'error': f'Slug "{slug_val}" already exists. Choose a different one.'}), 409
+
     db.execute(
-        'INSERT INTO legal_skills (id, slug, name, description, trigger, steps, automated, matter_type, tier, service_line, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?)',
-        (sid, slug_val, data['name'], data.get('description', ''),
-         data.get('trigger', ''), data.get('steps', ''),
-         1 if data.get('automated') else 0,
-         data.get('matter_type', 'General'),
-         data.get('tier', 'All'),
-         data.get('service_line', ''),
-         datetime.now().isoformat()))
+        'INSERT INTO legal_skills (id, slug, name, description, trigger, steps, automated, practice_area, matter_type, tier, service_line, created_at) VALUES (?,?,?,?,?,?,?,?,?,?,?,?)',
+        (sid, slug_val, name, description, trigger, '', automated, practice_area, matter_type, tier, service_line, datetime.now().isoformat()))
     db.commit()
+
+    content_to_save = None
+    if skill_file and skill_file.filename:
+        content_to_save = skill_file.read().decode('utf-8', errors='replace')
+    elif markdown_src:
+        content_to_save = markdown_src
+
+    if content_to_save:
+        base_dir = os.path.dirname(os.path.abspath(__file__))
+        skill_dir = Path(base_dir) / 'skills' / slug_val
+        skill_dir.mkdir(parents=True, exist_ok=True)
+        skill_md_path = skill_dir / 'SKILL.md'
+        skill_md_path.write_text(content_to_save, encoding='utf-8')
+
     return jsonify({'id': sid, 'slug': slug_val}), 201
 
 

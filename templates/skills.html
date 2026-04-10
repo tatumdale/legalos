@@ -107,7 +107,7 @@
       <input type="hidden" id="skill-slug">
       <div style="margin-bottom:16px;">
         <label style="display:block; color:#aaa; font-size:12px; margin-bottom:4px;">Slug (URL name)</label>
-        <input id="f-slug" type="text" class="form-input" placeholder="e.g. contract-review" style="width:100%; background:#222; border:1px solid #333; color:#e0e0e0; padding:8px; border-radius:6px;">
+        <input id="f-slug" type="text" class="form-input" placeholder="auto-generated from name (or enter custom)" style="width:100%; background:#222; border:1px solid #333; color:#e0e0e0; padding:8px; border-radius:6px;">
       </div>
       <div style="margin-bottom:16px;">
         <label style="display:block; color:#aaa; font-size:12px; margin-bottom:4px;">Name</label>
@@ -174,6 +174,21 @@
           <option value="1">&#9889; Automated — agents run this skill automatically</option>
           <option value="0">&#128100; Human-Assisted — requires human approval</option>
         </select>
+      </div>
+      <div style="margin-bottom:16px;">
+        <label style="display:block; color:#aaa; font-size:12px; margin-bottom:4px;">SKILL.md File</label>
+        <div id="file-upload-area" style="border:2px dashed #333; border-radius:8px; padding:20px; text-align:center; cursor:pointer; background:#16161e; transition:border-color 0.2s;" onclick="document.getElementById('skill-file').click()">
+          <input type="file" id="skill-file" name="skill_file" accept=".md,.markdown" style="display:none;" onchange="handleFileSelect(this)">
+          <div id="file-upload-label" style="color:#666; font-size:13px;">
+            <span style="font-size:20px;">&#128193;</span><br>
+            Click to upload a .md file, or drag & drop here
+          </div>
+          <div id="file-upload-name" style="display:none; color:#4ade80; font-size:13px;"></div>
+        </div>
+        <div style="margin-top:8px;">
+          <label style="display:block; color:#555; font-size:11px; margin-bottom:4px;">Or paste SKILL.md content below</label>
+          <textarea id="f-markdown-content" rows="6" placeholder="# Skill Name&#10;&#10;## What&#10;&#10;## When to Use&#10;&#10;## Steps&#10;..." style="width:100%; background:#1a1a2e; border:1px solid #333; color:#c0c0c0; padding:8px; border-radius:6px; font-family:monospace; font-size:12px; resize:vertical;"></textarea>
+        </div>
       </div>
       <div id="modal-error" class="flash flash-error" style="display:none; margin-bottom:12px;"></div>
       <div style="display:flex; gap:8px; justify-content:flex-end;">
@@ -366,12 +381,20 @@ function openModal(slug) {
   document.getElementById('skill-slug').value = slug || '';
   document.getElementById('modal-title').textContent = slug ? 'Edit Skill' : 'Add Skill';
   document.getElementById('f-slug').readOnly = !!slug;
+  document.getElementById('skill-file').value = '';
+  document.getElementById('f-markdown-content').value = '';
+  document.getElementById('file-upload-name').style.display = 'none';
+  document.getElementById('file-upload-label').style.display = 'block';
   if (slug) editSkill(slug);
 }
 
 function closeModal() {
   document.getElementById('skill-modal').style.display = 'none';
   document.getElementById('modal-error').style.display = 'none';
+  document.getElementById('skill-file').value = '';
+  document.getElementById('f-markdown-content').value = '';
+  document.getElementById('file-upload-name').style.display = 'none';
+  document.getElementById('file-upload-label').style.display = 'block';
 }
 
 async function editSkill(slug) {
@@ -397,35 +420,81 @@ document.getElementById('skill-form').addEventListener('submit', async function(
   e.preventDefault();
   var slug = document.getElementById('skill-slug').value.trim();
   var isNew = !document.getElementById('f-slug').readOnly;
-  var payload = {
-    slug:         document.getElementById('f-slug').value.trim(),
-    name:         document.getElementById('f-name').value.trim(),
-    description:  document.getElementById('f-desc').value.trim(),
-    practice_area:document.getElementById('f-practice-area').value.trim(),
-    service_line: document.getElementById('f-service-line').value.trim(),
-    tier:         document.getElementById('f-tier-modal').value.trim(),
-    matter_type:  document.getElementById('f-matter-type').value.trim(),
-    trigger:      document.getElementById('f-trigger').value.trim(),
-    automated:    parseInt(document.getElementById('f-automated').value),
-  };
-  if (!payload.slug || !payload.name) {
+
+  if (!slug && isNew) {
+    var nameVal = document.getElementById('f-name').value.trim();
+    slug = nameVal.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '').slice(0, 60);
+    document.getElementById('skill-slug').value = slug;
+  }
+
+  var nameRequired = document.getElementById('f-name').value.trim();
+  if (!nameRequired) {
     var err = document.getElementById('modal-error');
-    err.textContent = 'Slug and name are required.';
+    err.textContent = 'Name is required.';
     err.style.display = 'block';
     return;
   }
+
+  var skillFile = document.getElementById('skill-file').files[0];
+  var markdownContent = document.getElementById('f-markdown-content').value.trim();
+
   var r;
   if (isNew) {
-    r = await fetch('/api/skills', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    if (skillFile || markdownContent) {
+      var fd = new FormData();
+      fd.append('name', nameRequired);
+      fd.append('slug', slug);
+      fd.append('description', document.getElementById('f-desc').value.trim());
+      fd.append('practice_area', document.getElementById('f-practice-area').value.trim());
+      fd.append('service_line', document.getElementById('f-service-line').value.trim());
+      fd.append('tier', document.getElementById('f-tier-modal').value.trim());
+      fd.append('matter_type', document.getElementById('f-matter-type').value.trim());
+      fd.append('trigger', document.getElementById('f-trigger').value.trim());
+      fd.append('automated', document.getElementById('f-automated').value);
+      if (skillFile) fd.append('skill_file', skillFile);
+      if (markdownContent) fd.append('markdown_content', markdownContent);
+
+      r = await fetch('/api/skills', {method:'POST', body: fd});
+    } else {
+      var payload = {
+        name:         nameRequired,
+        slug:         slug,
+        description:  document.getElementById('f-desc').value.trim(),
+        practice_area:document.getElementById('f-practice-area').value.trim(),
+        service_line: document.getElementById('f-service-line').value.trim(),
+        tier:         document.getElementById('f-tier-modal').value.trim(),
+        matter_type:  document.getElementById('f-matter-type').value.trim(),
+        trigger:      document.getElementById('f-trigger').value.trim(),
+        automated:    parseInt(document.getElementById('f-automated').value),
+      };
+      r = await fetch('/api/skills', {method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
+    }
   } else {
+    var payload = {
+      slug:         document.getElementById('f-slug').value.trim(),
+      name:         nameRequired,
+      description:  document.getElementById('f-desc').value.trim(),
+      practice_area:document.getElementById('f-practice-area').value.trim(),
+      service_line: document.getElementById('f-service-line').value.trim(),
+      tier:         document.getElementById('f-tier-modal').value.trim(),
+      matter_type:  document.getElementById('f-matter-type').value.trim(),
+      trigger:      document.getElementById('f-trigger').value.trim(),
+      automated:    parseInt(document.getElementById('f-automated').value),
+    };
     r = await fetch('/api/skills/' + slug, {method:'PUT', headers:{'Content-Type':'application/json'}, body:JSON.stringify(payload)});
   }
+
   if (r.ok) {
     closeModal();
+    document.getElementById('skill-file').value = '';
+    document.getElementById('f-markdown-content').value = '';
+    document.getElementById('file-upload-name').style.display = 'none';
+    document.getElementById('file-upload-label').style.display = 'block';
     loadSkills();
   } else {
     var e2 = document.getElementById('modal-error');
-    e2.textContent = (await r.json()).error || 'Save failed.';
+    var errBody = await r.json().catch(function(){ return {error: 'Save failed'}; });
+    e2.textContent = errBody.error || ('Save failed (HTTP ' + r.status + ')');
     e2.style.display = 'block';
   }
 });
@@ -474,6 +543,16 @@ async function toggleSkill(slug) {
     btn.disabled = false;
     console.error('toggle failed', e);
   }
+}
+
+function handleFileSelect(input) {
+  var file = input.files[0];
+  if (!file) return;
+  var label = document.getElementById('file-upload-label');
+  var nameEl = document.getElementById('file-upload-name');
+  nameEl.textContent = '\u{1F4C4} ' + file.name + ' (' + Math.round(file.size/1024) + ' KB)';
+  nameEl.style.display = 'block';
+  label.style.display = 'none';
 }
 
 // ── Boot ─────────────────────────────────────────────────────────────────────
