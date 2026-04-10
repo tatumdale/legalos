@@ -375,6 +375,7 @@ function closeModal() {
 }
 
 async function editSkill(slug) {
+  document.getElementById('skill-modal').style.display = 'block';
   var r = await fetch('/api/skills/' + slug);
   var s = await r.json();
   document.getElementById('modal-title').textContent = 'Edit Skill';
